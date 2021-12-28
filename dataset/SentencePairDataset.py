@@ -40,9 +40,9 @@ class SentencePairDataset(Dataset):
                 return_tensors='pt'
                 )
         
-        token_ids = encoded_pair['input_ids'].squeeze(0)
-        attn_masks = encoded_pair['attention_mask'].squeeze(0)
-        token_type_ids = encoded_pair['token_type_ids'].squeeze(0)
+        token_ids = encoded_pair['input_ids']
+        attn_masks = encoded_pair['attention_mask']
+        token_type_ids = encoded_pair['token_type_ids']
 
         if self.with_label:
             label = self.data.loc[tid_bool, 'label'].tolist()

@@ -11,9 +11,9 @@ from torch.cuda.amp import autocast,GradScaler
 from tqdm import tqdm
 from transformers import AdamW, get_linear_schedule_with_warmup
 
-from dataset import SentencePairDataset,TextDataset
+from dataset import SentencePairDataset
 from model import SentencePairClassifier
-from utils import mkdir_p,read_attr_conf
+from utils import mkdir_p,read_attr_conf,set_seed
     
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print('Using ',device)
@@ -23,16 +23,6 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('conf',action='store')
     return parser.parse_args()
-
-def set_seed(seed):
-    """ Set all seeds to make results reproducible """
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    np.random.seed(seed)
-    random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed) 
 
 def evaluate_loss(net, device, criterion, dataloader):
     net.eval()
@@ -50,14 +40,16 @@ def evaluate_loss(net, device, criterion, dataloader):
 
     return mean_loss / count
 
-def evaluate_metric(net, device, criterion, val_df):
+def evaluate_metric(net, device, criterion, dataloader):
     net.eval()
-
     with torch.no_grad():
-        for it, (seq, attn_masks, token_type_ids, labels) in enumerate(tqdm(dataloader)):
-            pass
+        for it in tqdm(range(len(dataloader))):
+            seq, attn_masks, token_type_ids, labels = dataloader[it]
+            predstr = dataloader.dataset.predictionstring[it]
+            text = dataloader.dataset.text[it]
+            pred = net(seq,attn_masks,token_type_ids)
 
-def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_loader, epochs, iters_to_accumulate):
+def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_loader, pred_loader, epochs, iters_to_accumulate):
 
     best_loss = np.Inf
     best_ep = 1
@@ -104,6 +96,9 @@ def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_lo
                 val_loss = evaluate_loss(net, device, criterion, val_loader)
                 tqdm.write("[validation] Iteration {}/{} of epoch {} complete. Loss : {} "
                       .format(it+1, nb_iterations, ep+1, val_loss.item()))
+                val_metric = evaluate_metric(net, device, criterion, pred_loader)
+                tqdm.write("[validation] Iteration {}/{} of epoch {} complete. metric : {} "
+                      .format(it+1, nb_iterations, ep+1, val_metric.item()))
 
                 running_loss = 0.0
 
@@ -137,24 +132,20 @@ def run_sent_pair_classification():
 
     print("Reading dataframe...")
     df = pd.read_csv(os.path.join(io_config['base_dir'],'sent_df.csv'),index_col=0)
+    discourse_df = pd.read_csv(io_config['discourse_df_path'])
+    text_df = pd.read_csv(os.path.join(io_config['base_dir'],'text_df.csv'),index_col=0)
     train_df,val_df = train_test_split(df)
     num_class = len(df.label.unique())
-    #discourse_df = pd.read_csv(io_config['discourse_df_path'])
-    #text_df = pd.read_csv(os.path.join(io_config['base_dir'],'text_df.csv'),index_col=0)
-    #ent_pair_to_cat = pickle.load(open(os.path.join(io_config['base_dir'],'ent_pair_to_cat.p'),'rb'))
-    #cat_to_ent_pair = pickle.load(open(os.path.join(io_config['base_dir'],'cat_to_ent_pair.p'),'rb'))
-    #num_class = len(ent_pair_to_cat)
-    #train_df,val_df = train_test_split(text_df)
 
     print("Reading training data...")
-    #train_set = TextDataset(train_df, discourse_df,ent_pair_to_cat,cat_to_ent_pair,bert_model=io_config['bert_model'])
-    train_set = SentencePairDataset(train_df,io_config['maxlen'],bert_model='bert-base-uncased',num_classes=num_class)
+    train_set = SentencePairDataset(train_df,io_config['maxlen'],bert_model=io_config['bert_model'],num_classes=num_class)
     print("Reading validation data...")
-    #val_set = TextDataset(val_df, discourse_df,ent_pair_to_cat,cat_to_ent_pair,bert_model=io_config['bert_model'])
-    val_set = SentencePairDataset(val_df,io_config['maxlen'],bert_model='bert-base-uncased',num_classes=num_class)
+    val_set = SentencePairDataset(val_df,io_config['maxlen'],bert_model=io_config['bert_model'],num_classes=num_class)
+    pred_set = SentencePairDataset(val_df,io_config['maxlen'],bert_model=io_config['bert_model'],num_classes=num_class,discourse_df=discourse_df,text_df=text_df)
     
     train_loader = DataLoader(train_set, batch_size=io_config['train_textbs'],collate_fn=TextDataset.collate_fn)
     val_loader = DataLoader(val_set, batch_size=io_config['val_textbs'],collate_fn=TextDataset.collate_fn)
+    pred_loader = DataLoader(pred_set, batch_size=1,collate_fn=TextDataset.collate_fn)
     
     net = SentencePairClassifier(io_config['bert_model'], freeze_bert=io_config['freeze_bert'], num_class=num_class)
     
@@ -171,7 +162,7 @@ def run_sent_pair_classification():
     t_total = (len(train_loader) // io_config['iters_to_accumulate']) * io_config['epochs']
     lr_scheduler = get_linear_schedule_with_warmup(optimizer=opti, num_warmup_steps=num_warmup_steps, num_training_steps=t_total)
     
-    train_sent_pair(net, criterion, opti, io_config['lr'], lr_scheduler, train_loader, val_loader, io_config['epochs'], io_config['iters_to_accumulate'])
+    train_sent_pair(net, criterion, opti, io_config['lr'], lr_scheduler, train_loader, val_loader, pred_loader, io_config['epochs'], io_config['iters_to_accumulate'])
 
 if __name__ == '__main__':
     args = parse_arguments()

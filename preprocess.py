@@ -33,12 +33,11 @@ def construct_ner_df(discourse_df,text_df):
         for j in discourse_df[discourse_df['id'] == i[1]['id']].iterrows():
             discourse = j[1]['discourse_type']
             list_ix = [int(x) for x in j[1]['predictionstring'].split(' ')]
-            entities[list_ix[0]] = f"B-{discourse}"
-            for k in list_ix[1:]: entities[k] = f"I-{discourse}"
+            for k in list_ix: entities[k] = "{discourse}"
         all_entities.append(entities)
-    text_df['entities'] = all_entities
+    text_df['ents'] = all_entities
 
-    output_labels = ['O', 'B-Lead', 'I-Lead', 'B-Position', 'I-Position', 'B-Claim', 'I-Claim', 'B-Counterclaim', 'I-Counterclaim', 'B-Rebuttal', 'I-Rebuttal', 'B-Evidence', 'I-Evidence', 'B-Concluding Statement', 'I-Concluding Statement']
+    output_labels = text_df.ents.unique()
     labels_to_ids = {v:k for k,v in enumerate(output_labels)}
     ids_to_labels = {k:v for k,v in enumerate(output_labels)}
     tqdm.write('-'*100)
@@ -52,7 +51,7 @@ def construct_sent_label(words,ents):
     n = len(words)
     while end < n:
         stop_punct = all([punct not in words[end] for punct in ['.','!','?']])
-        same_ent = (end <= n-2) and (ents[end].split('-')[-1] == ents[end+1].split('-')[-1]) 
+        same_ent = (end <= n-2) and (ents[end] == ents[end+1]) 
         if stop_punct and same_ent:
             end += 1
         else:
@@ -72,7 +71,7 @@ def construct_sent_pair_df(ner_df):
     entries = []
     for irow,row in tqdm(ner_df.iterrows()):
         words = row.text.split()
-        ents = eval(row.entities)
+        ents = eval(row.ents)
         sents,labels = construct_sent_label(words,ents)
         entries.append(([row.id]*len(sents),sents,labels))
     sent_df = pd.DataFrame(entries,columns=['id','sent','ent'])

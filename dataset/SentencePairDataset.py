@@ -6,7 +6,7 @@ import numpy as np
 
 class SentencePairDataset(Dataset):
 
-    def __init__(self, data, maxlen, with_label=True, bert_model='albert-base-v2', one_hot_label=True, num_classes=None):
+    def __init__(self, data, maxlen, with_label=True, bert_model='albert-base-v2', one_hot_label=True, num_classes=None, discourse_df=None, text_df=None):
 
         self.data = data
         self.text_ids = self.data.id.unique()
@@ -20,6 +20,8 @@ class SentencePairDataset(Dataset):
                 self.num_classes = num_classes
             else:
                 self.num_classes = len(self.data.label.unique())
+        self.discourse_df = discourse_df if discourse_df is not None else discourse_df
+        self.text_df = text_df.set_index('id') if text_df is not None else text_df
 
     def __len__(self):
         return len(self.text_ids)
@@ -29,8 +31,8 @@ class SentencePairDataset(Dataset):
         tid = self.text_ids[index]
 
         tid_bool = self.data.id==tid
-        sent1 = self.data.loc[tid_bool, 'sent1'].tolist()
-        sent2 = self.data.loc[tid_bool, 'sent2'].tolist()
+        sent1 = self.data.loc[tid_bool,'sent1'].tolist()
+        sent2 = self.data.loc[tid_bool,'sent2'].tolist()
 
         encoded_pair = self.tokenizer(
                 sent1, sent2, 
@@ -45,10 +47,10 @@ class SentencePairDataset(Dataset):
         token_type_ids = encoded_pair['token_type_ids']
 
         if self.with_label:
-            label = self.data.loc[tid_bool, 'label'].tolist()
+            label = self.data.loc[tid_bool,'label'].tolist()
             if self.one_hot_label:
                 label = F.one_hot(torch.tensor(label),num_classes=self.num_classes)
-            return token_ids, attn_masks, token_type_ids, label  
+            return token_ids, attn_masks, token_type_ids, label 
         else:
             return token_ids, attn_masks, token_type_ids
 
@@ -56,3 +58,15 @@ class SentencePairDataset(Dataset):
     def collate_fn(batch):
         d = len(batch[0])
         return [torch.cat(list(map(lambda d: d[i],batch))) for i in range(d)]
+
+    def predictionstring(self,index):
+        tid = self.text_ids[index]
+        return self.discourse_df.loc[self.discourse_df.id==tid,'predictionstring']
+
+    def discourse_type(self,index):
+        tid = self.text_ids[index]
+        return self.discourse_df.loc[self.discourse_df.id==tid,'discourse_type']    
+
+    def text(self,index):
+        tid = self.text_ids[index]
+        return self.text_df.loc[tid,'text']

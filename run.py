@@ -1,5 +1,5 @@
 from pipeline import BasePipeline
-from sentclass import Preprocess 
+from sentclass import Preprocess,PrepareData,Train 
 from utils import read_attr_conf
 
 def parse_arguments():
@@ -14,7 +14,9 @@ if __name__ == "__main__":
     mod_params = read_attr_conf(args.conf,'conf')
     pp = BasePipeline(
             [
-                ('Preprocess',Preprocess()),
+                #('Preprocess',Preprocess()),
+                ('PrepareData',PrepareData()),
+                ('Train',Train()),
             ],
             base_dir = mod_params['base_dir'],
             )

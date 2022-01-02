@@ -1,12 +1,14 @@
 import os
 import pandas as pd
 import pickle
+import torch
 
 from utils import mkdir_p
 
 fname_ext_map = {
         'df_csv': '.csv',
         'pickle': '.p',
+        'torch_model': '.pt',
         }
 
 class Container(object):
@@ -24,11 +26,11 @@ class Container(object):
         else:
             raise RuntimeError
 
-    def read_item_from_dir(self,name,ftype,args={}):
+    def read_item_from_dir(self,name,ftype,args={},mod_name=None):
         if ftype == 'df_csv':
-            obj = pd.read_csv(self.fname_ext(self.mod_path(name),ftype),**args)
+            obj = pd.read_csv(self.fname_ext(self.mod_path(name,mod_name),ftype),**args)
         elif ftype == 'pickle':
-            obj = pickle.load(open(self.fname_ext(self.mod_path(name),ftype),'wb'))
+            obj = pickle.load(open(self.fname_ext(self.mod_path(name,mod_name),ftype),'wb'))
         else:
             raise RuntimeError
         self.add_item(name,obj,ftype,mode='read')
@@ -47,13 +49,17 @@ class Container(object):
             self.save_one_item(name,item,ftype)
         if clearcache: self.items_to_write = {}
 
-    def save_one_item(self,fname,obj,ftype='df'):
+    def save_one_item(self,fname,obj,ftype='df_csv'):
+        path = self.fname_ext(self.mod_path(fname),ftype) 
         if ftype == 'df_csv':
-            obj.to_csv(self.fname_ext(self.mod_path(fname),ftype))
+            obj.to_csv(path)
         elif ftype == 'pickle':
-            pickle.dump(obj,open(self.fname_ext(self.mod_path(fname),ftype),'wb'))
+            pickle.dump(obj,open(path,'wb'))
+        elif ftype == 'torch_model':
+            torch.save(obj,path)
         else:
             raise RuntimeError
+        print('Object {} has been saved as type {}'.format(fname,ftype))
 
     def file_exists(self,fname):
         return os.path.exists(os.path.join(self.base_dir,self.sub_dir,fname))
@@ -64,8 +70,8 @@ class Container(object):
         else:
             raise KeyError
 
-    def mod_path(self,fname):
-        return os.path.join(self.mod_dir,fname)
+    def mod_path(self,fname,mod_name=None):
+        return os.path.join(self.mod_dir if mod_name is None else os.path.join(self.base_dir,mod_name),fname)
 
     @property
     def mod_dir(self):

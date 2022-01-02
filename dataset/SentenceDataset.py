@@ -86,6 +86,13 @@ class SentenceDataset(Dataset):
         keys = batch[0].keys()
         return {k: torch.cat([batch[i][k] for i in range(n)]) for k in keys}
 
+    def get_sent_column(self,index,column):
+        tid = self.text_ids[index]
+        return self.sent_data.loc[tid,column]
+
+    def get_id(self,index):
+        return self.text_ids[index]
+
 if __name__ == "__main__":
     sent_df = pd.read_csv('../storage/output/211228_baseline/sent_df.csv',index_col=0)
     text_df = pd.read_csv('../storage/output/211228_baseline/text_df.csv',index_col=0)

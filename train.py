@@ -49,10 +49,10 @@ def evaluate_loss(net, device, criterion, dataloader):
                 seq, attn_masks, token_type_ids, labels = \
                     seq.to(device), attn_masks.to(device), token_type_ids.to(device), labels.to(device)
                 logits = net(seq, attn_masks, token_type_ids)
-                mean_loss += criterion(logits.squeeze(-1), labels.float())
+                mean_loss += criterion(logits.squeeze(-1), labels)
                 count += 1
 
-    return mean_loss / count
+    return mean_loss.item() / count
 
 def evaluate_metric(net, device, criterion, val_df):
     net.eval()
@@ -61,7 +61,7 @@ def evaluate_metric(net, device, criterion, val_df):
         for it, (seq, attn_masks, token_type_ids, labels) in enumerate(tqdm(dataloader)):
             pass
 
-def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_loader, epochs, iters_to_accumulate):
+def train_sent_classification(net, criterion, opti, lr, lr_scheduler, train_loader, val_loader, epochs, iters_to_accumulate):
 
     best_loss = np.Inf
     best_ep = 1
@@ -89,7 +89,7 @@ def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_lo
                 with autocast():
                     logits = net(seq, attn_masks, token_type_ids)
 
-                    loss = criterion(logits.squeeze(-1), labels.float())
+                    loss = criterion(logits.squeeze(-1), labels)
                     loss = loss / iters_to_accumulate
 
                 scaler.scale(loss).backward()
@@ -107,7 +107,7 @@ def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_lo
                       .format(it+1, nb_iterations, ep+1, running_loss / print_every))
                 val_loss = evaluate_loss(net, device, criterion, val_loader)
                 tqdm.write("[validation] Iteration {}/{} of epoch {} complete. Loss : {} "
-                      .format(it+1, nb_iterations, ep+1, val_loss.item()))
+                      .format(it+1, nb_iterations, ep+1, val_loss))
 
                 running_loss = 0.0
 
@@ -147,9 +147,9 @@ def run_sent_pair_classification():
     num_class = io_config['num_class']
 
     print("Reading training data...")
-    train_set = SentenceDataset(train_df,text_df,io_config['maxlen'],bert_model=io_config['bert_model'],num_classes=num_class)
+    train_set = SentenceDataset(train_df,text_df,io_config['maxlen'],bert_model=io_config['bert_model'],num_classes=num_class,one_hot_label=False)
     print("Reading validation data...")
-    val_set = SentenceDataset(val_df,text_df,io_config['maxlen'],bert_model=io_config['bert_model'],num_classes=num_class)
+    val_set = SentenceDataset(val_df,text_df,io_config['maxlen'],bert_model=io_config['bert_model'],num_classes=num_class,one_hot_label=False)
     
     train_loader = DataLoader(train_set, batch_size=io_config['train_textbs'],collate_fn=SentenceDataset.collate_fn)
     val_loader = DataLoader(val_set, batch_size=io_config['val_textbs'],collate_fn=SentenceDataset.collate_fn)
@@ -162,14 +162,14 @@ def run_sent_pair_classification():
     
     net.to(device)
     
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.CrossEntropyLoss()
     opti = AdamW(net.parameters(), lr=io_config['lr'], weight_decay=io_config['wd'])
     num_warmup_steps = 0
     num_training_steps = io_config['epochs'] * len(train_loader)
     t_total = (len(train_loader) // io_config['iters_to_accumulate']) * io_config['epochs']
     lr_scheduler = get_linear_schedule_with_warmup(optimizer=opti, num_warmup_steps=num_warmup_steps, num_training_steps=t_total)
     
-    train_sent_pair(net, criterion, opti, io_config['lr'], lr_scheduler, train_loader, val_loader, io_config['epochs'], io_config['iters_to_accumulate'])
+    train_sent_classification(net, criterion, opti, io_config['lr'], lr_scheduler, train_loader, val_loader, io_config['epochs'], io_config['iters_to_accumulate'])
 
 if __name__ == '__main__':
     args = parse_arguments()

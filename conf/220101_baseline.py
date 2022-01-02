@@ -1,0 +1,25 @@
+conf = dict(
+    base_dir='storage/output/220101_baseline/',
+    Preprocess = dict(
+        discourse_df_csv_path='storage/train.csv',
+        text_dir='storage/train/',
+        text_df_csv_fname='text_df.csv',
+    ),
+    Train = dict(
+        num_class=8,
+        discourse_df_path='storage/train.csv',
+        base_dir='storage/output/211228_baseline/',
+        rev_dir='train_rev_01/',
+        bert_model = "bert-base-uncased",
+        freeze_bert = False,
+        maxlen = 512,
+        train_textbs=1,
+        train_bs = 8,
+        val_textbs = 32,
+        iters_to_accumulate = 1,
+        lr = 2e-5,
+        wd = 1e-2,
+        epochs = 3,
+        print_every = 1,
+        ),
+)

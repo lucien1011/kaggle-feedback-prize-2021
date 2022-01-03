@@ -1,5 +1,5 @@
 conf = dict(
-    base_dir='storage/output/220103_ner_baseline/',
+    base_dir='storage/output/220103_ner_roberta-base/',
     Preprocess = dict(
         discourse_df_csv_path='storage/train.csv',
         text_dir='storage/train/',

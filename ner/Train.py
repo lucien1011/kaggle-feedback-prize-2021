@@ -14,6 +14,9 @@ from utils import set_seed
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def model_name_in_path(fname):
+    return fname.replace('/','-')
+
 def train_one_step(ids,mask,labels,model,optimizer,params):
     loss, tr_logits = model(input_ids=ids, attention_mask=mask, labels=labels,return_dict=False)
     torch.nn.utils.clip_grad_norm_(
@@ -163,9 +166,8 @@ class Train(Module):
                 tqdm.write("Best validation score improved from {} to {}".format(best_score, score))
                 best_model = copy.deepcopy(self.model)
                 best_score = score
-
-            best_model_name = '{}_valscore{}_ep{}'.format(params['bert_model'], round(best_score, 5), epoch)
-            container.add_item(best_model_name,best_model.state_dict(),'torch_model',mode='write') 
+                best_model_name = '{}_valscore{}_ep{}'.format(model_name_in_path(params['bert_model']), round(best_score, 5), epoch)
+                container.add_item(best_model_name,best_model.state_dict(),'torch_model',mode='write') 
 
             torch.cuda.empty_cache()
             gc.collect()

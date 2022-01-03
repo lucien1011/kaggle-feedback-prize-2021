@@ -26,7 +26,6 @@ def evaluate_loss(net, device, criterion, dataloader, batch_size):
 
     with torch.no_grad():
         for it,batch in enumerate(tqdm(dataloader)):
-            if it > 1: break
             batch_dataset = TensorDataset(batch['input_ids'], batch['attention_mask'], batch['token_type_ids'], batch['label'])
             batch_loader = DataLoader(batch_dataset, batch_size=batch_size)
 
@@ -90,7 +89,6 @@ class Train(Module):
             self.model.train()
             running_loss = 0.0
             for it,batch in enumerate(tqdm(container.train_loader)):
-                if it > 10: break
                 loss = self.train_one_batch(batch,params['train_bs'],self.model,self.criterion,self.scaler,params['iters_to_accumulate'])
 
                 if (it + 1) % params['iters_to_accumulate'] == 0:

@@ -21,7 +21,6 @@ class PrepareData(Module):
     
     def prepare(self,container,params):
          
-
         container.read_item_from_dir('sent_df','df_csv',args=dict(index_col=0),mod_name=params['input_mod'])
         container.read_item_from_dir('text_df','df_csv',args=dict(index_col=0),mod_name=params['input_mod'])
         train_df,val_df = self.train_test_split(container.sent_df)

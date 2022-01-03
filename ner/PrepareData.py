@@ -21,6 +21,8 @@ class PrepareData(Module):
         return train,test
     
     def prepare(self,container,params):
+        
+        if 'seed' in params: set_seed(params['seed'])
          
         container.read_item_from_path('discourse_df',params['discourse_df_path'],'df_csv')
         container.read_item_from_dir('ner_df','df_csv',args=dict(index_col=0),mod_name=params['input_mod'])

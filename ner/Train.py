@@ -117,6 +117,8 @@ class Train(Module):
     _header = '-'*100
     
     def prepare(self,container,params):
+        if 'seed' in params: set_seed(params['seed'])
+        
         config_model = AutoConfig.from_pretrained(params['bert_model'],**params['config_args']) 
         self.model = AutoModelForTokenClassification.from_pretrained(params['bert_model'],config=config_model)
         self.model.to(device)

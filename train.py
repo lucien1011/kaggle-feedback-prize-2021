@@ -11,8 +11,8 @@ from torch.cuda.amp import autocast,GradScaler
 from tqdm import tqdm
 from transformers import AdamW, get_linear_schedule_with_warmup
 
-from dataset import SentencePairDataset,TextDataset
-from model import SentencePairClassifier
+from dataset import SentenceDataset
+from model import SentenceClassifier
 from utils import mkdir_p,read_attr_conf
     
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,14 +41,18 @@ def evaluate_loss(net, device, criterion, dataloader):
     count = 0
 
     with torch.no_grad():
-        for it, (seq, attn_masks, token_type_ids, labels) in enumerate(tqdm(dataloader)):
-            seq, attn_masks, token_type_ids, labels = \
-                seq.to(device), attn_masks.to(device), token_type_ids.to(device), labels.to(device)
-            logits = net(seq, attn_masks, token_type_ids)
-            mean_loss += criterion(logits.squeeze(-1), labels.float())
-            count += 1
+        for it,batch in enumerate(tqdm(dataloader)):
+            batch_dataset = TensorDataset(batch['input_ids'], batch['attention_mask'], batch['token_type_ids'], batch['label'])
+            batch_loader = DataLoader(batch_dataset, batch_size=io_config['train_bs'])
 
-    return mean_loss / count
+            for seq, attn_masks, token_type_ids, labels in batch_loader:
+                seq, attn_masks, token_type_ids, labels = \
+                    seq.to(device), attn_masks.to(device), token_type_ids.to(device), labels.to(device)
+                logits = net(seq, attn_masks, token_type_ids)
+                mean_loss += criterion(logits.squeeze(-1), labels)
+                count += 1
+
+    return mean_loss.item() / count
 
 def evaluate_metric(net, device, criterion, val_df):
     net.eval()
@@ -57,7 +61,7 @@ def evaluate_metric(net, device, criterion, val_df):
         for it, (seq, attn_masks, token_type_ids, labels) in enumerate(tqdm(dataloader)):
             pass
 
-def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_loader, epochs, iters_to_accumulate):
+def train_sent_classification(net, criterion, opti, lr, lr_scheduler, train_loader, val_loader, epochs, iters_to_accumulate):
 
     best_loss = np.Inf
     best_ep = 1
@@ -73,8 +77,8 @@ def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_lo
 
         net.train()
         running_loss = 0.0
-        for it, (batch_seq, batch_attn_masks, batch_token_type_ids, batch_labels) in enumerate(tqdm(train_loader)):
-            batch_dataset = TensorDataset(batch_seq, batch_attn_masks, batch_token_type_ids, batch_labels)
+        for it,batch in enumerate(tqdm(train_loader)):
+            batch_dataset = TensorDataset(batch['input_ids'], batch['attention_mask'], batch['token_type_ids'], batch['label'])
             batch_loader = DataLoader(batch_dataset, batch_size=io_config['train_bs'])
 
             for seq, attn_masks, token_type_ids, labels in batch_loader:
@@ -85,7 +89,7 @@ def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_lo
                 with autocast():
                     logits = net(seq, attn_masks, token_type_ids)
 
-                    loss = criterion(logits.squeeze(-1), labels.float())
+                    loss = criterion(logits.squeeze(-1), labels)
                     loss = loss / iters_to_accumulate
 
                 scaler.scale(loss).backward()
@@ -103,7 +107,7 @@ def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_lo
                       .format(it+1, nb_iterations, ep+1, running_loss / print_every))
                 val_loss = evaluate_loss(net, device, criterion, val_loader)
                 tqdm.write("[validation] Iteration {}/{} of epoch {} complete. Loss : {} "
-                      .format(it+1, nb_iterations, ep+1, val_loss.item()))
+                      .format(it+1, nb_iterations, ep+1, val_loss))
 
                 running_loss = 0.0
 
@@ -127,7 +131,7 @@ def train_sent_pair(net, criterion, opti, lr, lr_scheduler, train_loader, val_lo
 
 def train_test_split(df):
     from sklearn.model_selection import GroupShuffleSplit
-    train_inds, test_inds = next(GroupShuffleSplit(test_size=.20, n_splits=2, random_state = 7).split(df, groups=df['id']))
+    train_inds, test_inds = next(GroupShuffleSplit(test_size=.20, n_splits=2, random_state = 7).split(df, groups=df.index))
     train = df.iloc[train_inds]
     test = df.iloc[test_inds]
     return train,test
@@ -136,27 +140,21 @@ def run_sent_pair_classification():
     set_seed(1)
 
     print("Reading dataframe...")
-    df = pd.read_csv(os.path.join(io_config['base_dir'],'sent_df.csv'),index_col=0)
-    train_df,val_df = train_test_split(df)
-    num_class = len(df.label.unique())
-    #discourse_df = pd.read_csv(io_config['discourse_df_path'])
-    #text_df = pd.read_csv(os.path.join(io_config['base_dir'],'text_df.csv'),index_col=0)
-    #ent_pair_to_cat = pickle.load(open(os.path.join(io_config['base_dir'],'ent_pair_to_cat.p'),'rb'))
-    #cat_to_ent_pair = pickle.load(open(os.path.join(io_config['base_dir'],'cat_to_ent_pair.p'),'rb'))
-    #num_class = len(ent_pair_to_cat)
-    #train_df,val_df = train_test_split(text_df)
+    sent_df = pd.read_csv(os.path.join(io_config['base_dir'],'sent_df.csv'),index_col=0)
+    text_df = pd.read_csv(os.path.join(io_config['base_dir'],'text_df.csv'),index_col=0)
+
+    train_df,val_df = train_test_split(sent_df)
+    num_class = io_config['num_class']
 
     print("Reading training data...")
-    #train_set = TextDataset(train_df, discourse_df,ent_pair_to_cat,cat_to_ent_pair,bert_model=io_config['bert_model'])
-    train_set = SentencePairDataset(train_df,io_config['maxlen'],bert_model='bert-base-uncased',num_classes=num_class)
+    train_set = SentenceDataset(train_df,text_df,io_config['maxlen'],bert_model=io_config['bert_model'],num_classes=num_class,one_hot_label=False)
     print("Reading validation data...")
-    #val_set = TextDataset(val_df, discourse_df,ent_pair_to_cat,cat_to_ent_pair,bert_model=io_config['bert_model'])
-    val_set = SentencePairDataset(val_df,io_config['maxlen'],bert_model='bert-base-uncased',num_classes=num_class)
+    val_set = SentenceDataset(val_df,text_df,io_config['maxlen'],bert_model=io_config['bert_model'],num_classes=num_class,one_hot_label=False)
     
-    train_loader = DataLoader(train_set, batch_size=io_config['train_textbs'],collate_fn=TextDataset.collate_fn)
-    val_loader = DataLoader(val_set, batch_size=io_config['val_textbs'],collate_fn=TextDataset.collate_fn)
+    train_loader = DataLoader(train_set, batch_size=io_config['train_textbs'],collate_fn=SentenceDataset.collate_fn)
+    val_loader = DataLoader(val_set, batch_size=io_config['val_textbs'],collate_fn=SentenceDataset.collate_fn)
     
-    net = SentencePairClassifier(io_config['bert_model'], freeze_bert=io_config['freeze_bert'], num_class=num_class)
+    net = SentenceClassifier(io_config['bert_model'], freeze_bert=io_config['freeze_bert'], num_class=num_class)
     
     if torch.cuda.device_count() > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -164,14 +162,14 @@ def run_sent_pair_classification():
     
     net.to(device)
     
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.CrossEntropyLoss()
     opti = AdamW(net.parameters(), lr=io_config['lr'], weight_decay=io_config['wd'])
     num_warmup_steps = 0
     num_training_steps = io_config['epochs'] * len(train_loader)
     t_total = (len(train_loader) // io_config['iters_to_accumulate']) * io_config['epochs']
     lr_scheduler = get_linear_schedule_with_warmup(optimizer=opti, num_warmup_steps=num_warmup_steps, num_training_steps=t_total)
     
-    train_sent_pair(net, criterion, opti, io_config['lr'], lr_scheduler, train_loader, val_loader, io_config['epochs'], io_config['iters_to_accumulate'])
+    train_sent_classification(net, criterion, opti, io_config['lr'], lr_scheduler, train_loader, val_loader, io_config['epochs'], io_config['iters_to_accumulate'])
 
 if __name__ == '__main__':
     args = parse_arguments()

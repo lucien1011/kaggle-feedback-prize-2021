@@ -1,7 +1,7 @@
 preprocess_conf = dict(
     input_train_csv_path='storage/train.csv',
     input_train_text_dir='storage/train/',
-    base_dir='storage/output/211225_baseline/',
+    base_dir='storage/output/211228_baseline/',
     seed=42,
     type='sent_pair',
 )

@@ -1,3 +1,4 @@
+from collections import Counter
 import os
 import nltk
 import pandas as pd
@@ -6,11 +7,37 @@ from tqdm import tqdm
 
 from utils import mkdir_p,read_attr_conf,Timer
 
+ent_to_cat = {
+        'Lead': 0,
+        'Position': 1,
+        'Claim': 2,
+        'Counterclaim': 3,
+        'Rebuttal' : 4,
+        'Evidence' : 5,
+        'Concluding Statement' : 6,
+        'O': 7,
+        }
+
 def parse_arguments():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('conf',action='store')
     return parser.parse_args()
+
+def construct_sent(words):
+    sents,indices = [],[]
+    start,end = 0,1
+    n = len(words)
+    while end < n:
+        stop_punct = all([punct not in words[end] for punct in ['.','!','?']])
+        if stop_punct:
+            end += 1
+        else:
+            indices.append((start,end))
+            end += 1
+            sents.append(' '.join(words[start:end]))
+            start = end
+    return sents,indices
 
 def construct_text_df(input_text_dir):
     tqdm.write('-'*100)
@@ -28,7 +55,8 @@ def construct_ner_df(discourse_df,text_df):
     tqdm.write('Construct ner dataframe')
     all_entities = []
     for i in tqdm(text_df.iterrows()):
-        total = i[1]['text'].split().__len__()
+        words = i[1]['text'].split()
+        sents,sent_indices = construct_sent(words)
         entities = ["O"]*total
         for j in discourse_df[discourse_df['id'] == i[1]['id']].iterrows():
             discourse = j[1]['discourse_type']
@@ -44,48 +72,30 @@ def construct_ner_df(discourse_df,text_df):
     tqdm.write('-'*100)
     return text_df,labels_to_ids,ids_to_labels
 
-def construct_sent_label(words,ents):
-    assert len(words) == len(ents)
-    sents,labels = [],[]
-    start,end = 0,1
-    prev_ent = ents[0]
-    n = len(words)
-    while end < n:
-        stop_punct = all([punct not in words[end] for punct in ['.','!','?']])
-        same_ent = (end <= n-2) and (ents[end].split('-')[-1] == ents[end+1].split('-')[-1]) 
-        if stop_punct and same_ent:
-            end += 1
-        else:
-            end += 1
-            sents.append(' '.join(words[start:end]))
-            labels.append(ents[start:end])
-            start = end
-    return sents,labels 
-
-def construct_sent_pair_df(ner_df):
-    
-    def clean_ner_label(s):
-        return s.split('-')[-1] if '-' in s else s
-
+def construct_sent_df(discourse_df,text_df):
     tqdm.write('-'*100)
-    tqdm.write('Construct sentence pair dataframe')
-    entries = []
-    for irow,row in tqdm(ner_df.iterrows()):
-        words = row.text.split()
-        ents = eval(row.entities)
-        sents,labels = construct_sent_label(words,ents)
-        entries.append(([row.id]*len(sents),sents,labels))
-    sent_df = pd.DataFrame(entries,columns=['id','sent','ent'])
-    sent_df['id'] = sent_df['id'].apply(lambda x: x[:-1])
-    sent_df['sent1'] = sent_df['sent'].apply(lambda x: x[:-1])
-    sent_df['sent2'] = sent_df['sent'].apply(lambda x: x[1:])
-    sent_df['ent_pair'] = sent_df['ent'].apply(lambda x: ["_".join([clean_ner_label(x[i][0]),clean_ner_label(x[i+1][0])]) for i in range(len(x)-1)])
-    sent_df = sent_df.explode(['id','sent1','sent2','ent_pair']).reset_index()
-    sent_df['label'] = sent_df['ent_pair'].astype('category').cat.codes
-    sent_df = sent_df[['id','sent1','sent2','ent_pair','label']].dropna()
-    cat_to_ent_pair = dict( zip( sent_df['label'],sent_df['ent_pair'] ) )
-    ent_pair_to_cat = dict( zip( sent_df['ent_pair'],sent_df['label'] ) )
-    return sent_df,ent_pair_to_cat,cat_to_ent_pair
+    tqdm.write('Construct sentence dataframe')
+    data = []
+    for i in tqdm(text_df.iterrows()):
+        tid = i[1]['id']
+        text = i[1]['text']
+        words = text.split()
+        sents,sent_indices = construct_sent(words)
+        disc_df_id = discourse_df[discourse_df['id'] == tid]
+        discourses = [(j[1]['discourse_type'],list(map(int,j[1]['predictionstring'].split(' ')))) for j in disc_df_id.iterrows()] 
+        entities = ["O"]*len(words)
+        for j in disc_df_id.iterrows():
+            discourse = j[1]['discourse_type']
+            list_ix = [int(x) for x in j[1]['predictionstring'].split(' ')]
+            for k in list_ix: entities[k] = f"{discourse}"
+        if sents:
+            approx_sent_discourses = [entities[sent_index[0]] for sent_index in sent_indices]
+            sent_discourses = [dict(Counter(entities[sent_index[0]:sent_index[1]+1])) for sent_index in sent_indices]
+            data.append([tid,sents,sent_indices,approx_sent_discourses,sent_discourses])
+    sent_df = pd.DataFrame(data,columns=('id','sent','sent_wid','approx_sent_discourse','sent_discourse')).set_index('id')
+    sent_df['approx_sent_discourse_cat'] = sent_df['approx_sent_discourse'].apply(lambda x: [ent_to_cat[i] for i in x])
+    tqdm.write('-'*100)
+    return sent_df 
 
 def save(obj,fname,mode='df'):
     mkdir_p(io_config['base_dir'])
@@ -105,23 +115,21 @@ def run_ner():
     save(labels_to_ids,'labels_to_ids.csv',mode='pickle')
     save(ids_to_labels,'ids_to_labels.csv',mode='pickle')
 
-def run_sent_pair():
-    ner_df_path = os.path.join(io_config['base_dir'],'ner_df.csv')
-    if not os.path.exists(ner_df_path):
-        run_ner()
+def run_sent_classification():
+    discourse_df = pd.read_csv(io_config['input_train_csv_path'])
+    if not os.path.exists(os.path.join(io_config['base_dir'],'text_df.csv')):
+        text_df = construct_text_df(io_config['input_train_text_dir'])
+        save(text_df,'text_df.csv')
     else:
-        ner_df = pd.read_csv(ner_df_path,index_col=0)
-        sent_df,ent_pair_to_cat,cat_to_ent_pair = construct_sent_pair_df(ner_df)
-        save(sent_df,'sent_df.csv')
-        save(ent_pair_to_cat,'ent_pair_to_cat.p',mode='pickle')
-        save(cat_to_ent_pair,'cat_to_ent_pair.p',mode='pickle')
-
+        text_df = pd.read_csv(os.path.join(io_config['base_dir'],'text_df.csv'),index_col=0)
+    sent_df = construct_sent_df(discourse_df,text_df)
+    save(sent_df,'sent_df.csv')
 
 def run():
     if io_config['type'] == 'ner':
         run_ner()
-    elif io_config['type'] == 'sent_pair':
-        run_sent_pair()
+    elif io_config['type'] == 'sent_classification':
+        run_sent_classification()
 
 if __name__ == "__main__":
     args = parse_arguments()

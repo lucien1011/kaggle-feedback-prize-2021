@@ -26,6 +26,15 @@ class Container(object):
         else:
             raise RuntimeError
 
+    def read_item_from_path(self,name,path,ftype,args={}):
+        if ftype == 'df_csv':
+            obj = pd.read_csv(path,**args)
+        elif ftype == 'pickle':
+            obj = pickle.load(open(path),'wb')
+        else:
+            raise RuntimeError
+        self.add_item(name,obj,ftype,mode='read')
+
     def read_item_from_dir(self,name,ftype,args={},mod_name=None):
         if ftype == 'df_csv':
             obj = pd.read_csv(self.fname_ext(self.mod_path(name,mod_name),ftype),**args)

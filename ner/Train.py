@@ -1,3 +1,4 @@
+import copy
 import gc
 import numpy as np
 import pandas as pd
@@ -91,7 +92,7 @@ def evaluate_score(discourse_df,val_set,val_loader,model,ids_to_labels):
         return oof
     
     with torch.no_grad():
-        valid = discourse_df.loc[discourse_df['id'].isin(val_set.data.index.tolist())]
+        valid = discourse_df.loc[discourse_df['id'].isin(val_set.data.id.tolist())]
         oof = get_predictions(val_set.data,val_loader,model)
         f1s = []
         CLASSES = oof['class'].unique()
@@ -102,9 +103,11 @@ def evaluate_score(discourse_df,val_set,val_loader,model,ids_to_labels):
             f1 = score_feedback_comp(pred_df, gt_df, 'class')
             print(c,f1)
             f1s.append(f1)
+        mean_f1_score = np.mean(f1s)
         print()
         print('Overall',np.mean(f1s))
         print()
+    return mean_f1_score
 
 class Train(Module):
 
@@ -117,6 +120,8 @@ class Train(Module):
         self.optimizer = torch.optim.Adam(params=self.model.parameters(), lr=params['lr'][0])
 
     def fit(self,container,params):
+        best_score = -np.Inf
+        
         for epoch in range(params['epochs']):
           
             tqdm.write(self._header)
@@ -132,7 +137,7 @@ class Train(Module):
             self.model.train()
             
             for idx, batch in enumerate(tqdm(container.train_loader)):
-                
+
                 ids = batch['input_ids'].to(device, dtype = torch.long)
                 mask = batch['attention_mask'].to(device, dtype = torch.long)
                 labels = batch['labels'].to(device, dtype = torch.long)
@@ -153,7 +158,14 @@ class Train(Module):
             tqdm.write(f"Training loss epoch: {epoch_loss}")
             tqdm.write(f"Training accuracy epoch: {tr_accuracy}") 
 
-            evaluate_score(container.discourse_df,container.val_set,container.val_loader,self.model,container.ids_to_labels)
+            score = evaluate_score(container.discourse_df,container.val_set,container.val_loader,self.model,container.ids_to_labels)
+            if score > best_score:
+                tqdm.write("Best validation score improved from {} to {}".format(best_score, score))
+                best_model = copy.deepcopy(self.model)
+                best_score = score
+
+            best_model_name = '{}_valscore{}_ep{}'.format(params['bert_model'], round(best_score, 5), epoch)
+            container.add_item(best_model_name,best_model.state_dict(),'torch_model',mode='write') 
 
             torch.cuda.empty_cache()
             gc.collect()

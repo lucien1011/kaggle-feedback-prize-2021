@@ -12,7 +12,7 @@ def parse_arguments():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('conf',action='store')
-    parser.add_argument('--steps',action='store',default='Preprocess,PrepareData,Train')
+    parser.add_argument('steps',action='store',default='Preprocess,PrepareData,Train')
     return parser.parse_args()
 
 if __name__ == "__main__":

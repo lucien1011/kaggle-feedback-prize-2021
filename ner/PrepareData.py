@@ -27,7 +27,7 @@ class PrepareData(Module):
         container.read_item_from_path('discourse_df',params['discourse_df_path'],'df_csv')
         container.read_item_from_dir('ner_df','df_csv',args=dict(index_col=0),mod_name=params['input_mod'])
         container.ner_df['ents'] = container.ner_df['ents'].apply(lambda x: eval(x))
-        train_df,val_df = self.train_test_split(container.ner_df)
+        train_df,val_df = self.train_test_split(container.ner_df,params['split_args'])
         tokenizer = AutoTokenizer.from_pretrained(params['bert_model'],**params['tokenizer_instant_args'])
         container.add_item('tokenizer',tokenizer,'huggingface_tokenizer','read')
         labels_to_ids = {v:k for k,v in enumerate(params['labels'])}

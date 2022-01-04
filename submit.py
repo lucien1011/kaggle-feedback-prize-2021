@@ -1,5 +1,5 @@
 import argparse
-from utils import read_attr_conf
+from utils import read_attr_conf,mkdir_p
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -20,21 +20,22 @@ cd {base_path}
 source setup_hpg.sh
 python3 {pyscript} {cfg_path} {mode}
 """.format(
-            pyscript=params['slurm']['fname'],
+            pyscript=params['slurm']['pyscript'],
             cfg_path=conf,
             mode=jobs,
             base_path=os.environ['BASE_PATH'],
             )
     worker.make_sbatch_script(
             script_file_name,
-            conf['name'],
-            conf['email'],
-            "1",
-            conf['memory'],
-            conf['time'],
-            conf['base_dir']
+            params['slurm']['name'],
+            params['slurm']['email'],
+            params['slurm']['ntasks'],
+            params['slurm']['memory'],
+            params['slurm']['time'],
+            params['base_dir'],
             slurm_commands,
-            conf['gpu'],
+            params['slurm']['ncore'],
+            params['slurm']['gpu'],
             )
     worker.sbatch_submit(script_file_name)
 
@@ -42,4 +43,4 @@ if __name__ == "__main__":
     
     args = parse_arguments()
     params = read_attr_conf(args.conf,'conf')
-    submit(args.conf,args.jobs,arams)
+    submit(args.conf,args.jobs,params)

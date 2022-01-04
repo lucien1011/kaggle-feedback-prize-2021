@@ -3,11 +3,13 @@ conf = dict(
     slurm=dict(
         fname='slurm.cfg',
         pyscript='run_ner.py',
-        name='220103_ner_roberta-base_testsize0p1'
+        name='220103_ner_roberta-base_testsize0p1',
         memory='32gb',
         email='kin.ho.lo@cern.ch',
         time='02:00:00',
         gpu='geforce',
+        ncore='1',
+        ntasks='1',
     ),
     Preprocess = dict(
         discourse_df_csv_path='storage/train.csv',

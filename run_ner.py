@@ -1,12 +1,6 @@
 from pipeline import BasePipeline
-from ner import Preprocess,PrepareData,Train
+from ner import * 
 from utils import read_attr_conf
-
-mod_map = dict(
-        Preprocess=Preprocess(),
-        PrepareData=PrepareData(),
-        Train=Train(),
-        )
 
 def parse_arguments():
     import argparse
@@ -21,7 +15,7 @@ if __name__ == "__main__":
     mod_params = read_attr_conf(args.conf,'conf')
     step_names = args.steps.split(',')
     pp = BasePipeline(
-            [(step_name,mod_map[step_name]) for step_name in args.steps.split(',')],
+            [(step_name,eval(step_name+"()")) for step_name in args.steps.split(',')],
             base_dir = mod_params['base_dir'],
             )
     pp.run(mod_params)

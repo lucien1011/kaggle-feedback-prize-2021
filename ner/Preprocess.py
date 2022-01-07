@@ -24,7 +24,9 @@ def construct_ner_df(discourse_df,text_df):
             discourse = j[1]['discourse_type']
             list_ix = [int(x) for x in j[1]['predictionstring'].split(' ')]
             entities[list_ix[0]] = f"B-{discourse}"
-            for k in list_ix[1:]: entities[k] = f"I-{discourse}"
+            #for k in list_ix[1:-1]: entities[k] = f"I-{discourse}"
+            for k in list_ix[1:-1]: entities[k] = f"I-{discourse}"
+            entities[-1] = f"E-{discourse}"
         all_entities.append(entities)
     text_df['ents'] = all_entities
     return text_df

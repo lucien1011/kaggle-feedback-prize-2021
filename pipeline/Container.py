@@ -35,14 +35,14 @@ class Container(object):
             raise RuntimeError
         self.add_item(name,obj,ftype,mode='read')
 
-    def read_item_from_dir(self,name,ftype,args={},mod_name=None):
+    def read_item_from_dir(self,name,ftype,args={},mod_name=None,newkey=None):
         if ftype == 'df_csv':
             obj = pd.read_csv(self.fname_ext(self.mod_path(name,mod_name),ftype),**args)
         elif ftype == 'pickle':
             obj = pickle.load(open(self.fname_ext(self.mod_path(name,mod_name),ftype),'wb'))
         else:
             raise RuntimeError
-        self.add_item(name,obj,ftype,mode='read')
+        self.add_item(name if newkey is None else newkey,obj,ftype,mode='read')
 
     def __getattr__(self,name):
         if name in self.items_to_read:

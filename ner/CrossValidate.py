@@ -52,18 +52,18 @@ def get_predictions(val_set,val_loader,model,ids_to_labels):
             if cls == 'O': j += 1
             else: cls = cls.replace('B','I') # spans start with B
             end = j + 1
-            #while end < len(pred) and pred[end] == cls:
-            #    end += 1
-            stop = False
-            while not stop and end < len(pred):
-                if pred[end] == cls:
-                    end += 1
-                    stop = False
-                elif end+5 < len(pred) and pred[end+5] == cls:
-                    end = end+5
-                    stop = False
-                else:
-                    stop = True
+            while end < len(pred) and pred[end] == cls:
+                end += 1
+            #stop = False
+            #while not stop and end < len(pred):
+            #    if pred[end] == cls:
+            #        end += 1
+            #        stop = False
+            #    elif end+5 < len(pred) and pred[end+5] == cls:
+            #        end = end+5
+            #        stop = False
+            #    else:
+            #        stop = True
             
             if cls != 'O' and cls != '' and end - j > 7:
                 final_preds2.append((idx, cls.replace('I-',''),

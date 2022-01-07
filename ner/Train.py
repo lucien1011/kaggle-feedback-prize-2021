@@ -74,14 +74,13 @@ def evaluate_score(discourse_df,val_set,val_loader,model,ids_to_labels):
         final_preds2 = []
         for i in range(len(val_set)):
             idx = val_set.id.values[i]
-            #pred = [x.replace('B-','').replace('I-','') for x in y_pred2[i]]
             pred = y_pred2[i] # Leave "B" and "I"
             preds = []
             j = 0
             while j < len(pred):
                 cls = pred[j]
                 if cls == 'O': j += 1
-                else: cls = cls.replace('B','I') # spans start with B
+                else: cls = cls.replace('B-','I-').replace('E-','I-') # spans start with B
                 end = j + 1
                 while end < len(pred) and pred[end] == cls:
                     end += 1

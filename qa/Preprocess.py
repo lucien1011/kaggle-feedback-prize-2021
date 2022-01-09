@@ -17,16 +17,24 @@ def construct_text_df(input_text_dir):
 
 def construct_qa_df(discourse_df,text_df):
     all_entities = []
+    all_types = []
     for ii,i in tqdm(enumerate(text_df.iterrows())):
         total = i[1]['text'].split().__len__()
         entities = ["O"]*total
+        types = [1]*total
         for j in discourse_df[discourse_df['id'] == i[1]['id']].iterrows():
             discourse = j[1]['discourse_type']
             list_ix = [int(x) for x in j[1]['predictionstring'].split(' ')]
-            entities[list_ix[0]] = f"B-{discourse}"
-            entities[list_ix[-1]] = f"E-{discourse}"
+            if discourse in ['Lead','Position','Concluding Statement']:
+                for k in list_ix: types[k] = 0
+            else:
+                entities[list_ix[0]] = f"B-{discourse}"
+                for k in list_ix[1:]: entities[k] = f"I-{discourse}"
+                for k in list_ix: types[k] = 1
         all_entities.append(entities)
+        all_types.append(types)
     text_df['ents'] = all_entities
+    text_df['types'] = all_types
     return text_df
 
 class Preprocess(Module):

@@ -1,5 +1,6 @@
 from itertools import islice
 from .Container import Container
+from .Module import Module
 
 class BasePipeline(object):
     _required_parameters = ["steps"]
@@ -10,17 +11,18 @@ class BasePipeline(object):
         self.verbose = verbose
 
     def _validate_steps(self):
-        names, modules = zip(*self.steps)
+        names, steps = zip(*self.steps)
 
         self._validate_names(names)
 
-        for m in modules:
-            if not (hasattr(m, "prepare") or hasattr(m, "fit")) or not hasattr(
-                m, "wrapup"
-            ):
+        for s in steps:
+            if not (
+                    (hasattr(s, "prepare") and hasattr(s, "fit") and hasattr(s, "wrapup")) 
+                    or hasattr(s,'run')
+                    ):
                 raise TypeError(
-                    "All estimators should implement prepare, fit and wrapup."
-                    "'%s' (type %s) doesn't" % (m, type(m))
+                    "All estimators should implement (prepare, fit and wrapup) or run."
+                    "'%s' (type %s) doesn't" % (s, type(s))
                 )
 
     def _validate_names(self,names):
@@ -70,18 +72,22 @@ class BasePipeline(object):
         Generate (idx, (name, mod)) tuples from self.steps
         """
         stop = len(self.steps)
-        for idx, (name, mod) in enumerate(islice(self.steps, 0, stop)):
-            yield idx, name, mod
+        for idx, (name, step) in enumerate(islice(self.steps, 0, stop)):
+            yield idx, name, step
 
     def _run(self,mod_params):
         self.steps = list(self.steps)
         self._validate_steps() 
 
-        for (step_idx, name, mod) in self._iter():
+        for (step_idx, name, mods) in self._iter():
+            if isinstance(mods,Module):
+                mods = [mods]
             self.container.set_subdir(name)
-            mod.prepare(self.container,mod_params[name])
-            mod.fit(self.container,mod_params[name])
-            mod.wrapup(self.container,mod_params[name])
+            for mod in mods:
+                mod.check_required_params(mod_params[name])
+                mod.prepare(self.container,mod_params[name])
+                mod.fit(self.container,mod_params[name])
+                mod.wrapup(self.container,mod_params[name])
 
     def run(self,mod_params):
         self._run(mod_params)

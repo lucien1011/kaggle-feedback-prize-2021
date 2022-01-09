@@ -1,9 +1,9 @@
 conf = dict(
-    base_dir='storage/output/220106_qa_google-bigbird-roberta-base/',
+    base_dir='storage/output/220107_qa_google-bigbird-roberta-base/',
     slurm=dict(
         fname='slurm.cfg',
         pyscript='run_qa.py',
-        name='220106_qa_google-bigbird-roberta-base',
+        name='220107_qa_google-bigbird-roberta-base',
         memory='32gb',
         email='kin.ho.lo@cern.ch',
         time='04:00:00',
@@ -39,11 +39,11 @@ conf = dict(
         bert_model="google/bigbird-roberta-base",
         train_bs=4,
         val_bs=32,
-        labels=['O', 'B-Lead', 'E-Lead', 'B-Position', 'E-Position', 'B-Claim', 'E-Claim', 'B-Counterclaim', 'E-Counterclaim', 'B-Rebuttal', 'E-Rebuttal', 'B-Evidence', 'E-Evidence', 'B-Concluding Statement', 'E-Concluding Statement'],
+        labels=['O','B-Position', 'E-Position', 'B-Claim', 'E-Claim', 'B-Counterclaim', 'E-Counterclaim', 'B-Rebuttal', 'E-Rebuttal', 'B-Evidence', 'E-Evidence',],
         ),
     Train = dict(
         bert_model="google/bigbird-roberta-base",
-        config_args = dict(num_labels=15),
+        config_args = dict(num_labels=11),
         lr= [2.5e-5, 2.5e-5, 2.5e-6, 2.5e-6, 2.5e-7],
         epochs=5,
         print_every=200,
@@ -53,13 +53,13 @@ conf = dict(
     
     CrossValidate = dict(
         bert_model="google/bigbird-roberta-base",
-        config_args = dict(num_labels=15),
-        saved_model='storage/output/220106_qa_google-bigbird-roberta-base/Train/google-bigbird-roberta-base_valscore0.58095_ep4.pt',
+        config_args = dict(num_labels=11),
+        saved_model='storage/output/220107_qa_google-bigbird-roberta-base/Train/google-bigbird-roberta-base_valscore0.03329_ep0.pt',
         ),
 
     Infer = dict(
         bert_model="google/bigbird-roberta-base",
-        config_args = dict(num_labels=15),
-        saved_model='storage/output/220106_qa_google-bigbird-roberta-base/Train/google-bigbird-roberta-base_valscore0.58095_ep4.pt',
+        config_args = dict(num_labels=11),
+        saved_model='storage/output/220107_qa_google-bigbird-roberta-base/Train/google-bigbird-roberta-base_valscore0.01572_ep0.pt',
         ),
 )

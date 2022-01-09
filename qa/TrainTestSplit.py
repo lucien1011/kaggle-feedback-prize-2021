@@ -12,6 +12,7 @@ class TrainTestSplit(Module):
         container.read_item_from_path('discourse_df',params['discourse_df_path'],'df_csv')
         container.read_item_from_dir('qa_df','df_csv',args=dict(index_col=0),mod_name=params['input_mod'])
         container.qa_df['ents'] = container.qa_df['ents'].apply(lambda x: eval(x))
+        container.qa_df['types'] = container.qa_df['types'].apply(lambda x: eval(x))
 
         group_kfold = GroupKFold(**params['split_args'])
         for i,(train_inds, test_inds) in enumerate(group_kfold.split(container.qa_df, groups=container.qa_df['id'])):

@@ -52,14 +52,19 @@ class Container(object):
         else:
             raise AttributeError
 
+    def get(self,name):
+        return self.__getattr__(name)
+
     def save(self,clearcache=False):
         mkdir_p(self.mod_dir)
         for name,(item,ftype) in self.items_to_write.items():
             self.save_one_item(name,item,ftype)
         if clearcache: self.items_to_write = {}
 
-    def save_one_item(self,fname,obj,ftype='df_csv'):
+    def save_one_item(self,fname,obj,ftype='df_csv',check_dir=False):
         path = self.fname_ext(self.mod_path(fname),ftype) 
+        if check_dir:
+            mkdir_p(os.path.dirname(path))
         if ftype == 'df_csv':
             obj.to_csv(path)
         elif ftype == 'pickle':

@@ -17,7 +17,8 @@ def inference(batch,model,ids_to_labels):
                 
     ids = batch["input_ids"].to(device)
     mask = batch["attention_mask"].to(device)
-    outputs = model(ids, attention_mask=mask, return_dict=False)
+    token_type_ids = batch["token_type_ids"].to(device)
+    outputs = model(ids, attention_mask=mask, token_type_ids=token_type_ids, return_dict=False)
     all_preds = torch.argmax(outputs[0], axis=-1).cpu().numpy() 
     predictions = []
     for k,text_preds in enumerate(all_preds):
@@ -50,18 +51,29 @@ def get_predictions(val_set,val_loader,model,ids_to_labels):
         j = 0
         while j < len(pred):
             cls = pred[j]
-            if cls.startswith('B-'):
-                end_cls = cls.replace('B-','E-')
-                end = j + 1
-                while end < len(pred) and pred[end] != end_cls:
-                    end += 1 
-                if end < len(pred) and pred[end] == end_cls and end - j > 7:
-                    final_preds2.append((idx, cls.replace('B-',''),' '.join(map(str, list(range(j, end))))))
-                    j = end + 1
-                else:
-                    j += 1
-            else:
-                j += 1
+            if cls == 'O': j += 1
+            else: cls = cls.replace('B','I') # spans start with B
+            end = j + 1
+            while end < len(pred) and pred[end] == cls:
+                end += 1
+            if cls != 'O' and cls != '' and end - j > 7:
+                final_preds2.append((idx, cls.replace('I-',''),' '.join(map(str, list(range(j, end))))))
+            j = end
+        #j = 0
+        #while j < len(pred):
+        #    cls = pred[j]
+        #    if cls.startswith('B-'):
+        #        end_cls = cls.replace('B-','E-')
+        #        end = j + 1
+        #        while end < len(pred) and pred[end] != end_cls:
+        #            end += 1 
+        #        if end < len(pred) and pred[end] == end_cls and end - j > 7:
+        #            final_preds2.append((idx, cls.replace('B-',''),' '.join(map(str, list(range(j, end))))))
+        #            j = end + 1
+        #        else:
+        #            j += 1
+        #    else:
+        #        j += 1
     oof = pd.DataFrame(final_preds2)
     if final_preds2: oof.columns = ['id','class','predictionstring']
     return oof

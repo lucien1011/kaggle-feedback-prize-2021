@@ -17,8 +17,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def model_name_in_path(fname):
     return fname.replace('/','-')
 
-def train_one_step(ids,mask,labels,model,optimizer,params):
-    loss, tr_logits = model(input_ids=ids, attention_mask=mask, labels=labels,return_dict=False)
+def train_one_step(ids,mask,token_type_ids,labels,model,optimizer,params):
+    loss, tr_logits = model(input_ids=ids, attention_mask=mask, token_type_ids=token_type_ids,labels=labels,return_dict=False)
     torch.nn.utils.clip_grad_norm_(
         parameters=model.parameters(),max_norm=params['max_grad_norm']
     )
@@ -47,7 +47,8 @@ def evaluate_score(discourse_df,val_set,val_loader,model,ids_to_labels):
                     
         ids = batch["input_ids"].to(device)
         mask = batch["attention_mask"].to(device)
-        outputs = model(ids, attention_mask=mask, return_dict=False)
+        token_type_ids = batch["token_type_ids"].to(device)
+        outputs = model(ids, attention_mask=mask, token_type_ids=token_type_ids, return_dict=False)
         all_preds = torch.argmax(outputs[0], axis=-1).cpu().numpy() 
         predictions = []
         for k,text_preds in enumerate(all_preds):
@@ -80,18 +81,16 @@ def evaluate_score(discourse_df,val_set,val_loader,model,ids_to_labels):
             j = 0
             while j < len(pred):
                 cls = pred[j]
-                if cls.startswith('B-'):
-                    end_cls = cls.replace('B-','E-')
-                    end = j + 1
-                    while end < len(pred) and pred[end] != end_cls:
-                        end += 1 
-                    if end < len(pred) and pred[end] == end_cls and end - j > 7:
-                        final_preds2.append((idx, cls.replace('B-',''),' '.join(map(str, list(range(j, end))))))
-                        j = end + 1
-                    else:
-                        j += 1
-                else:
-                    j += 1
+                if cls == 'O': j += 1
+                else: cls = cls.replace('B-','I-').replace('E-','I-') # spans start with B
+                end = j + 1
+                while end < len(pred) and pred[end] == cls:
+                    end += 1
+                
+                if cls != 'O' and cls != '' and end - j > 7:
+                    final_preds2.append((idx, cls.replace('I-',''),
+                                         ' '.join(map(str, list(range(j, end))))))
+                j = end
         oof = pd.DataFrame(final_preds2)
         if final_preds2: oof.columns = ['id','class','predictionstring']
         return oof
@@ -101,7 +100,8 @@ def evaluate_score(discourse_df,val_set,val_loader,model,ids_to_labels):
         oof = get_predictions(val_set.data,val_loader,model)
         if not len(oof): return 0.
         f1s = []
-        CLASSES = valid['discourse_type'].unique()
+        #CLASSES = valid['discourse_type'].unique()
+        CLASSES = oof['class'].unique()
         print()
         for c in CLASSES:
             pred_df = oof.loc[oof['class']==c].copy()
@@ -145,12 +145,13 @@ class Train(Module):
             self.model.train()
             
             for idx, batch in enumerate(tqdm(container.train_loader)):
-
+               
                 ids = batch['input_ids'].to(device, dtype = torch.long)
                 mask = batch['attention_mask'].to(device, dtype = torch.long)
+                token_type_ids = batch['token_type_ids'].to(device, dtype = torch.long)
                 labels = batch['labels'].to(device, dtype = torch.long)
 
-                loss,tr_logits = train_one_step(ids,mask,labels,self.model,self.optimizer,params)
+                loss,tr_logits = train_one_step(ids,mask,token_type_ids,labels,self.model,self.optimizer,params)
                 
                 tr_loss += loss.item()
                 accuracy,f1 = evaluate_accuracy_f1_one_step(labels,tr_logits,self.model.num_labels)
@@ -176,7 +177,7 @@ class Train(Module):
                 best_model = copy.deepcopy(self.model)
                 best_score = score
                 best_model_name = '{}_valscore{}_ep{}'.format(model_name_in_path(params['bert_model']), round(best_score, 5), epoch)
-                container.save_one_item(best_model_name,best_model.state_dict(),'torch_model') 
+                container.save_one_item(best_model_name,best_model.state_dict(),'torch_model',check_dir=True) 
 
             torch.cuda.empty_cache()
             gc.collect()

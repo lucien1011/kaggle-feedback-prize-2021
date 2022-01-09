@@ -4,3 +4,6 @@ from .Train import Train
 from .CrossValidate import CrossValidate
 from .Infer import Infer
 from .TrainTestSplit import TrainTestSplit
+from .LoadModel import LoadModel
+from .PredictionString import PredictionString
+from .EvaluateScore import EvaluateScore

@@ -1,12 +1,6 @@
-import copy
-import gc
-import numpy as np
-import pandas as pd
-from sklearn.metrics import accuracy_score,f1_score
 import torch
 import torch.nn as nn
-from tqdm import tqdm
-from transformers import AutoConfig,AutoModelForTokenClassification,AdamW, get_linear_schedule_with_warmup
+from transformers import AutoConfig,AutoModelForTokenClassification
 
 from pipeline import TorchModule
 from utils import set_seed

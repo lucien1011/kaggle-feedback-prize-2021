@@ -6,13 +6,13 @@ from sklearn.metrics import accuracy_score
 import torch
 import torch.nn as nn
 from tqdm import tqdm
-from transformers import AutoConfig,AutoModelForTokenClassification,AdamW, get_linear_schedule_with_warmup
+from transformers import AdamW 
 
-from comp import score_feedback_comp
-from pipeline import Module
+from comp import evaluate_score_from_df
+from .Infer import get_pred_df
+from .PredictionString import get_predstr_df
+from pipeline import TorchModule
 from utils import set_seed
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def model_name_in_path(fname):
     return fname.replace('/','-')
@@ -41,86 +41,23 @@ def evaluate_accuracy_one_step(labels,logits,num_labels):
     
     return accuracy_score(labels.cpu().numpy(), predictions.cpu().numpy())
 
-def evaluate_score(discourse_df,val_set,val_loader,model,ids_to_labels):
-
-    def inference(batch,model):
-                    
-        ids = batch["input_ids"].to(device)
-        mask = batch["attention_mask"].to(device)
-        outputs = model(ids, attention_mask=mask, return_dict=False)
-        all_preds = torch.argmax(outputs[0], axis=-1).cpu().numpy() 
-        predictions = []
-        for k,text_preds in enumerate(all_preds):
-            token_preds = [ids_to_labels[i] for i in text_preds]
-    
-            prediction = []
-            word_ids = batch['wids'][k].numpy()  
-            previous_word_idx = -1
-            for idx,word_idx in enumerate(word_ids):                            
-                if word_idx == -1:
-                    pass
-                elif word_idx != previous_word_idx:              
-                    prediction.append(token_preds[idx])
-                    previous_word_idx = word_idx
-            predictions.append(prediction)
-        return predictions
-
-    def get_predictions(val_set,val_loader,model):
-        model.eval()  
-        y_pred2 = []
-        for batch in val_loader:
-            labels = inference(batch,model)
-            y_pred2.extend(labels)
-        final_preds2 = []
-        for i in range(len(val_set)):
-            idx = val_set.id.values[i]
-            pred = y_pred2[i] # Leave "B" and "I"
-            preds = []
-            j = 0
-            while j < len(pred):
-                cls = pred[j]
-                if cls == 'O': j += 1
-                else: cls = cls.replace('B-','I-').replace('E-','I-') # spans start with B
-                end = j + 1
-                while end < len(pred) and pred[end] == cls:
-                    end += 1
-                
-                if cls != 'O' and cls != '' and end - j > 7:
-                    final_preds2.append((idx, cls.replace('I-',''),
-                                         ' '.join(map(str, list(range(j, end))))))
-                j = end
-        oof = pd.DataFrame(final_preds2)
-        oof.columns = ['id','class','predictionstring']
-        return oof
-    
+def evaluate_score(discourse_df,val_loader,model,ids_to_labels,device):
     with torch.no_grad():
-        valid = discourse_df.loc[discourse_df['id'].isin(val_set.data.id.tolist())]
-        oof = get_predictions(val_set.data,val_loader,model)
-        f1s = []
-        CLASSES = oof['class'].unique()
-        print()
-        for c in CLASSES:
-            pred_df = oof.loc[oof['class']==c].copy()
-            gt_df = valid.loc[valid['discourse_type']==c].copy()
-            f1 = score_feedback_comp(pred_df, gt_df, 'class')
-            print(c,f1)
-            f1s.append(f1)
-        mean_f1_score = np.mean(f1s)
-        print()
-        print('Overall',np.mean(f1s))
-        print()
+        pred_df = get_predstr_df(get_pred_df(val_loader,model,ids_to_labels,device,add_true_class=True))
+    mean_f1_score,f1s = evaluate_score_from_df(discourse_df,pred_df)
     return mean_f1_score
 
-class Train(Module):
+class Train(TorchModule):
 
     _header = '-'*100
+    _required_params = ['model_name','seed']
     
     def prepare(self,container,params):
+
         if 'seed' in params: set_seed(params['seed'])
-        
-        config_model = AutoConfig.from_pretrained(params['bert_model'],**params['config_args']) 
-        self.model = AutoModelForTokenClassification.from_pretrained(params['bert_model'],config=config_model)
-        self.model.to(device)
+
+        self.model = container.get(params['model_name'])
+        self.model.to(self.device)
         self.optimizer = torch.optim.Adam(params=self.model.parameters(), lr=params['lr'][0])
 
     def fit(self,container,params):
@@ -135,40 +72,27 @@ class Train(Module):
             lr = self.optimizer.param_groups[0]['lr']
             tqdm.write(f'### LR = {lr}\n')
 
-            tr_loss, tr_accuracy = 0, 0
-            nb_tr_examples, nb_tr_steps = 0, 0
-            
             self.model.train()
             
             for idx, batch in enumerate(tqdm(container.train_loader)):
-
-                ids = batch['input_ids'].to(device, dtype = torch.long)
-                mask = batch['attention_mask'].to(device, dtype = torch.long)
-                labels = batch['labels'].to(device, dtype = torch.long)
+ 
+                ids = batch['input_ids'].to(self.device, dtype = torch.long)
+                mask = batch['attention_mask'].to(self.device, dtype = torch.long)
+                labels = batch['labels'].to(self.device, dtype = torch.long)
 
                 loss,tr_logits = train_one_step(ids,mask,labels,self.model,self.optimizer,params)
                 
-                tr_loss += loss.item()
-                tr_accuracy += evaluate_accuracy_one_step(labels,tr_logits,self.model.num_labels)
-                nb_tr_steps += 1
-                nb_tr_examples += labels.size(0)
-                
                 if idx % params['print_every']==0:
-                    loss_step = tr_loss/nb_tr_steps
-                    tqdm.write(f"Training loss after {idx:04d} training steps: {loss_step}")
+                    tqdm.write(f"Training loss after {idx:04d} training steps: {loss.item()}")
             
-            epoch_loss = tr_loss / nb_tr_steps
-            tr_accuracy = tr_accuracy / nb_tr_steps
-            tqdm.write(f"Training loss epoch: {epoch_loss}")
-            tqdm.write(f"Training accuracy epoch: {tr_accuracy}") 
-
-            score = evaluate_score(container.discourse_df,container.val_set,container.val_loader,self.model,container.ids_to_labels)
-            if score > best_score:
-                tqdm.write("Best validation score improved from {} to {}".format(best_score, score))
+            val_score = evaluate_score(container.discourse_df,container.val_loader,self.model,container.ids_to_labels,self.device)
+            tqdm.write(f"Validation score at this epoch: {val_score}") 
+            if val_score > best_score:
+                tqdm.write("Best validation score improved from {} to {}".format(best_score, val_score))
                 best_model = copy.deepcopy(self.model)
-                best_score = score
+                best_score = val_score
                 best_model_name = '{}_valscore{}_ep{}'.format(model_name_in_path(params['bert_model']), round(best_score, 5), epoch)
-                container.add_item(best_model_name,best_model.state_dict(),'torch_model',mode='write') 
+                container.save_one_item(best_model_name,best_model.state_dict(),'torch_model',check_dir=True) 
 
             torch.cuda.empty_cache()
             gc.collect()

@@ -45,7 +45,11 @@ class PredictionString(Module):
 
     def prepare(self,container,params):
 
-        self.pred_df = container.get(params['pred_df_name'])
+        try:
+            self.pred_df = container.get(params['pred_df_name'])
+        except AttributeError:
+            self.pred_df = pd.read_csv(params['pred_df_name'],index_col=0)
+            self.pred_df['predictionstring'] = self.pred_df['predictionstring'].apply(lambda x: eval(x))
 
     def fit(self,container,params):
         n = len(self.pred_df)
@@ -53,7 +57,7 @@ class PredictionString(Module):
         for i in tqdm(range(n)):
             idx = self.pred_df.id.values[i]
             pred = self.pred_df.pred_class.values[i]
-            preds.extend(get_string_be(idx,pred))
+            preds.extend(get_string_bi(idx,pred))
         df = pd.DataFrame(preds)
         if preds: df.columns = ['id','class','predictionstring']
         container.add_item(params['submission_df_name'],df,'df_csv',mode='write')

@@ -39,23 +39,18 @@ def construct_qa_df(discourse_df,text_df):
 
 class Preprocess(Module):
 
-    _required_params = ['discourse_df_csv_path','text_df_csv_fname','text_dir']
+    _required_params = ['discourse_df_csv_path','text_df_csv_fname',]
     
     def __init__(self):
         pass
 
     def prepare(self,container,params):
 
-        self.check_params(params)
         container.add_item('discourse_df',pd.read_csv(params['discourse_df_csv_path']),'df_csv',mode='read')
+        container.add_item('text_df',pd.read_csv(params['text_df_csv_fname']),'df_csv',mode='read')
 
     def fit(self,container,params):
-        
-        if not container.file_exists(params['text_df_csv_fname']):
-            container.add_item('text_df',construct_text_df(params['text_dir']),'df_csv',mode='write')
-        else:
-            container.read_item_from_dir('text_df','df_csv',args=dict(index_col=0))
-        
+
         qa_df = construct_qa_df(container.discourse_df,container.text_df)
         container.add_item('qa_df',qa_df,'df_csv',mode='write')
 

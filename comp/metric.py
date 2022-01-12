@@ -1,3 +1,5 @@
+import numpy as np
+
 def calc_overlap(row):
     """
     Calculates the overlap between prediction and
@@ -69,3 +71,21 @@ def score_feedback_comp(pred_df, gt_df, pred_label):
     #calc microf1
     my_f1_score = TP / (TP + 0.5*(FP+FN))
     return my_f1_score
+
+def evaluate_score_from_df(discourse_df,pred_df,pred_label='class'):
+    f1s = []
+    gt_df = discourse_df.loc[discourse_df['id'].isin(pred_df.id.tolist())]
+    CLASSES = discourse_df['discourse_type'].unique()
+    print()
+    for c in CLASSES:
+        pred_df_per_c = pred_df.loc[pred_df[pred_label]==c].copy()
+        gt_df_per_c = gt_df.loc[gt_df['discourse_type']==c].copy()
+        f1 = score_feedback_comp(pred_df_per_c, gt_df_per_c, pred_label)
+        print(c,f1)
+        f1s.append(f1)
+    mean_f1_score = np.mean(f1s)
+    print()
+    print('Overall',np.mean(f1s))
+    print()
+    return mean_f1_score,f1s
+

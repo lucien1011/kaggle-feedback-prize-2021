@@ -1,10 +1,12 @@
 import argparse
+import sys
+
 from utils import read_attr_conf,mkdir_p
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('conf')
-    parser.add_argument('jobs')
+    parser.add_argument('--jobs',action='store',default='')
     return parser.parse_args()
 
 def submit(conf,jobs,params):
@@ -15,16 +17,13 @@ def submit(conf,jobs,params):
     script_file_name = os.path.join(params['base_dir'],params['slurm']['fname'])
     
     worker = SLURMWorker()
+    run_commands = params['slurm'].get('commands',"python3 {pyscript} {cfg_path} {mode}".format(pyscript=params['slurm']['pyscript'],mode=jobs,cfg_path=conf))
+
     slurm_commands = """
 cd {base_path}
 source setup_hpg.sh
-python3 {pyscript} {cfg_path} {mode}
-""".format(
-            pyscript=params['slurm']['pyscript'],
-            cfg_path=conf,
-            mode=jobs,
-            base_path=os.environ['BASE_PATH'],
-            )
+{commands}
+""".format(commands=run_commands,base_path=os.environ['BASE_PATH'])
     worker.make_sbatch_script(
             script_file_name,
             params['slurm']['name'],

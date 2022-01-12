@@ -39,23 +39,31 @@ def get_string_be(idx,pred,minword=7):
             j += 1
     return preds
 
+def get_predstr_df(pred_df):
+    n = len(pred_df)
+    preds = []
+    for i in tqdm(range(n)):
+        idx = pred_df.id.values[i]
+        pred = pred_df.pred_class.values[i]
+        preds.extend(get_string_bi(idx,pred))
+    df = pd.DataFrame(preds)
+    if preds: df.columns = ['id','class','predictionstring']
+    return df
+
 class PredictionString(Module):
     
     _required_params = ['pred_df_name','submission_df_name']
 
     def prepare(self,container,params):
 
-        self.pred_df = container.get(params['pred_df_name'])
+        try:
+            self.pred_df = container.get(params['pred_df_name'])
+        except AttributeError:
+            self.pred_df = pd.read_csv(params['pred_df_name'],index_col=0)
+            self.pred_df['predictionstring'] = self.pred_df['predictionstring'].apply(lambda x: eval(x))
 
     def fit(self,container,params):
-        n = len(self.pred_df)
-        preds = []
-        for i in tqdm(range(n)):
-            idx = self.pred_df.id.values[i]
-            pred = self.pred_df.pred_class.values[i]
-            preds.extend(get_string_bi(idx,pred))
-        df = pd.DataFrame(preds)
-        if preds: df.columns = ['id','class','predictionstring']
+        df = get_predstr_df(self.pred_df)
         container.add_item(params['submission_df_name'],df,'df_csv',mode='write')
 
     def wrapup(self,container,params):

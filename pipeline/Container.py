@@ -66,7 +66,7 @@ class Container(object):
         if check_dir:
             mkdir_p(os.path.dirname(path))
         if ftype == 'df_csv':
-            obj.to_csv(path)
+            obj.to_csv(path,index=False)
         elif ftype == 'pickle':
             pickle.dump(obj,open(path,'wb'))
         elif ftype == 'torch_model':

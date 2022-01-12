@@ -9,7 +9,7 @@ from tqdm import tqdm
 from transformers import AutoConfig,AutoModelForTokenClassification,AdamW, get_linear_schedule_with_warmup
 
 from comp import score_feedback_comp
-from pipeline import Module
+from pipeline import TorchModule
 from utils import set_seed
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -115,7 +115,7 @@ def evaluate_score(discourse_df,val_set,val_loader,model,ids_to_labels):
         print()
     return mean_f1_score
 
-class Train(Module):
+class Train(TorchModule):
 
     _header = '-'*100
     
@@ -146,10 +146,9 @@ class Train(Module):
             
             for idx, batch in enumerate(tqdm(container.train_loader)):
                
-                ids = batch['input_ids'].to(device, dtype = torch.long)
-                mask = batch['attention_mask'].to(device, dtype = torch.long)
-                token_type_ids = batch['token_type_ids'].to(device, dtype = torch.long)
-                labels = batch['labels'].to(device, dtype = torch.long)
+                ids = batch['input_ids'].to(self.device, dtype = torch.long)
+                mask = batch['attention_mask'].to(self.device, dtype = torch.long)
+                labels = batch['labels'].to(self.device, dtype = torch.long)
 
                 loss,tr_logits = train_one_step(ids,mask,token_type_ids,labels,self.model,self.optimizer,params)
                 

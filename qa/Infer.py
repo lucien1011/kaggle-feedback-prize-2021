@@ -37,6 +37,19 @@ def inference(batch,tokenizer,model,ids_to_labels,device,true_labels=None):
         if true_labels is not None: labels.append(label)
     return predictions,tokens,labels
 
+def get_pred_df(dataloader,model,ids_to_labels,device,add_true_class=True):
+    data = {'id':[], 'token':[], 'pred_class':[]}
+    if add_true_class: data['true_class'] = []
+    for batch in tqdm(dataloader):
+        preds,tokens,trues = inference(batch,dataloader.dataset.tokenizer,model,ids_to_labels,device,batch['labels'].tolist() if add_true_class else None)
+        data['token'].extend(tokens)
+        data['pred_class'].extend(preds)
+        data['id'].extend(batch['id'])
+        if add_true_class: data['true_class'].extend(trues)
+    df = pd.DataFrame(data)
+    return df
+
+
 class Infer(TorchModule):
 
     _required_params = ['model_name','dataloader','add_true_class','pred_df_name',]
@@ -51,16 +64,7 @@ class Infer(TorchModule):
 
         with torch.no_grad():
             self.model.eval()
-            data = {'id':[], 'token':[], 'pred_class':[]}
-            if params['add_true_class']: data['true_class'] = []
-            for batch in tqdm(self.loader):
-                preds,tokens,trues = inference(batch,self.loader.dataset.tokenizer,self.model,self.ids_to_labels,self.device,batch['labels'].tolist() if params['add_true_class'] else None)
-                data['token'].extend(tokens)
-                data['pred_class'].extend(preds)
-                data['id'].extend(batch['id'])
-                if params['add_true_class']: data['true_class'].extend(trues)
-        
-        df = pd.DataFrame(data)
+            df = get_pred_df(self.loader,self.model,self.ids_to_labels,self.device,params['add_true_class'])
         container.add_item(params['pred_df_name'],df,'df_csv',mode='write')
 
     def wrapup(self,container,params):

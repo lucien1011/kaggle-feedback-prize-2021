@@ -64,6 +64,7 @@ conf = dict(
     Train=dict(
         seed=42,
         model_name='model',
+        bert_model="bigbird-roberta-base",
         lr= [2.5e-5, 2.5e-5, 2.5e-6, 2.5e-6, 2.5e-7],
         epochs=5,
         print_every=200,

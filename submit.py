@@ -17,7 +17,10 @@ def submit(conf,jobs,params):
     script_file_name = os.path.join(params['base_dir'],params['slurm']['fname'])
     
     worker = SLURMWorker()
-    run_commands = params['slurm'].get('commands',"python3 {pyscript} {cfg_path} {mode}".format(pyscript=params['slurm']['pyscript'],mode=jobs,cfg_path=conf))
+    if 'commands' in params['slurm']:
+        run_commands = params['slurm']['commands']
+    else:
+        run_commands = "python3 {pyscript} {cfg_path} {mode}".format(pyscript=params['slurm']['pyscript'],mode=jobs,cfg_path=conf)
 
     slurm_commands = """
 cd {base_path}

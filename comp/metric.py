@@ -74,13 +74,14 @@ def score_feedback_comp(pred_df, gt_df, pred_label):
 
 def evaluate_score_from_df(discourse_df,pred_df,pred_label='class'):
     f1s = []
+    if len(pred_df) == 0: return 0.,[]
     gt_df = discourse_df.loc[discourse_df['id'].isin(pred_df.id.tolist())]
     CLASSES = discourse_df['discourse_type'].unique()
     print()
     for c in CLASSES:
         pred_df_per_c = pred_df.loc[pred_df[pred_label]==c].copy()
         gt_df_per_c = gt_df.loc[gt_df['discourse_type']==c].copy()
-        f1 = score_feedback_comp(pred_df_per_c, gt_df_per_c, pred_label)
+        f1 = score_feedback_comp(pred_df_per_c, gt_df_per_c, pred_label) if len(gt_df_per_c) != 0 else 0.
         print(c,f1)
         f1s.append(f1)
     mean_f1_score = np.mean(f1s)

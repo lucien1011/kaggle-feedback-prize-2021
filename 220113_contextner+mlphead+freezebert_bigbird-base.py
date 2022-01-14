@@ -3,18 +3,18 @@ import contextner
 from utils import read_attr_conf
 
 conf = dict(
-    base_dir='storage/output/220113_contextner_bigbird-base/',
+    base_dir='storage/output/220113_contextner+mlphead+freezebert_bigbird-base/',
 
     slurm=dict(
         fname='slurm.cfg',
-        name='220113_contextner_bigbird-base',
+        name='220113_contextner+mlphead+freezebert_bigbird-base',
         memory='32gb',
         email='kin.ho.lo@cern.ch',
         time='04:00:00',
         gpu='a100',
         ncore='1',
         ntasks='1',
-        commands='python3 220113_contextner_bigbird-base.py',
+        commands='python3 220113_contextner+mlphead+freezebert_bigbird-base.py',
     ),
 
     Preprocess=dict(
@@ -54,6 +54,7 @@ conf = dict(
         args = dict(
             num_labels=9,
             bert_model="google/bigbird-roberta-base",
+            freeze_bert=True,
             ),
         model_name='model',
         ),
@@ -66,7 +67,7 @@ conf = dict(
         seed=42,
         model_name='model',
         bert_model="bigbird-roberta-base",
-        lr= [2.5e-5, 2.5e-5, 2.5e-5, 2.5e-5, 2.5e-5],
+        lr= [2.5e-6, 2.5e-6, 2.5e-6, 2.5e-6, 2.5e-6],
         epochs=5,
         print_every=200,
         max_grad_norm=10.,

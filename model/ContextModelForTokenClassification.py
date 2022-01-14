@@ -10,7 +10,7 @@ hidden_size_map = {
         }
 
 class ContextModelForTokenClassification(nn.Module):
-    def __init__(self, bert_model='google/bigbird-roberta-base', freeze_bert=False, num_labels=1):
+    def __init__(self, bert_model='google/bigbird-roberta-base', freeze_bert=False, num_labels=1, layer_norm_eps=1e-5):
         super(ContextModelForTokenClassification, self).__init__()
         self.bert_layer = AutoModel.from_pretrained(bert_model)
         
@@ -22,6 +22,11 @@ class ContextModelForTokenClassification(nn.Module):
 
         self.num_labels = num_labels
         self.cls_layer = nn.Linear(2*self.hidden_size, self.num_labels)
+
+        self.dense_0 = nn.Linear(self.hidden_size*2, self.hidden_size)
+        self.activation = nn.Tanh()
+        self.LayerNorm = nn.LayerNorm(self.hidden_size, eps=layer_norm_eps)
+        self.dense_1 = nn.Linear(self.hidden_size, self.num_labels)
 
         self.dropout = nn.Dropout(p=0.1)
 
@@ -48,7 +53,11 @@ class ContextModelForTokenClassification(nn.Module):
                     ),
                 dim=-1,
                 )
-        logits = self.cls_layer(self.dropout(concat_output))
+        #logits = self.cls_layer(self.dropout(concat_output))
+        x = self.dense_0(concat_output)
+        x = self.activation(x)
+        x = self.LayerNorm(x)
+        logits = self.dense_1(x)
 
         loss = None
         if labels is not None:

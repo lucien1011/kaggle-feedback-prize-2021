@@ -3,18 +3,18 @@ import contextner
 from utils import read_attr_conf
 
 conf = dict(
-    base_dir='storage/output/220113_contextner_bigbird-base/',
+    base_dir='storage/output/220113_contextner+mlphead_bigbird-base/',
 
     slurm=dict(
         fname='slurm.cfg',
-        name='220113_contextner_bigbird-base',
+        name='220113_contextner+mlphead_bigbird-base',
         memory='32gb',
         email='kin.ho.lo@cern.ch',
         time='04:00:00',
         gpu='a100',
         ncore='1',
         ntasks='1',
-        commands='python3 220113_contextner_bigbird-base.py',
+        commands='python3 220113_contextner+mlphead_bigbird-base.py',
     ),
 
     Preprocess=dict(

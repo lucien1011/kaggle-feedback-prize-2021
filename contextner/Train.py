@@ -79,7 +79,8 @@ class Train(TorchModule):
             tqdm.write(f'### LR = {lr}\n')
 
             self.model.train()
-            
+           
+            tr_loss,tr_step = 0.,1.
             for idx, batch in enumerate(tqdm(container.train_loader)):
                 
                 ids = batch['input_ids'].to(self.device, dtype = torch.long)
@@ -91,7 +92,11 @@ class Train(TorchModule):
                 loss,tr_logits = train_one_step(ids,mask,context_ids,context_mask,labels,self.model,self.optimizer,params)
                 
                 if idx % params['print_every']==0:
-                    tqdm.write(f"Training loss after {idx:04d} training steps: {loss.item()}")
+                    tqdm.write(f"Training loss after {idx:04d} training steps: {tr_loss/tr_step}")
+                    tr_loss,tr_step = 0.,0.
+                else:
+                    tr_loss += loss.item()
+                    tr_step += 1.
             
             val_score = evaluate_score(container.discourse_df,container.val_loader,self.model,container.ids_to_labels,self.device)
             tqdm.write(f"Validation score at this epoch: {val_score}") 

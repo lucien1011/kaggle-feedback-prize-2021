@@ -3,3 +3,4 @@ from .SentenceClassifier import SentenceClassifier
 from .BigBirdForTokenClassification import BigBirdForTokenClassification
 from .BigBirdAttHeadForTokenClassification import BigBirdAttHeadForTokenClassification
 from .ContextModelForTokenClassification import ContextModelForTokenClassification
+from .SlideWindowModel import SlideWindowModel

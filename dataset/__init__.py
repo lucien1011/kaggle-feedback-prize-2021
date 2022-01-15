@@ -4,3 +4,4 @@ from .TextDataset import TextDataset
 from .NERDataset import NERDataset
 from .QADataset import QADataset
 from .ContextNERDataset import ContextNERDataset
+from .SlideWindowDataset import SlideWindowDataset

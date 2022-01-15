@@ -26,7 +26,10 @@ class PrepareData(Module):
         ids_to_labels = {k:v for k,v in enumerate(params['labels'])}
         container.add_item('labels_to_ids',labels_to_ids,'pickle','read')
         container.add_item('ids_to_labels',ids_to_labels,'pickle','read')
-
+        
+        container.train_ner_df = container.train_ner_df.dropna().reset_index()
+        container.test_ner_df = container.test_ner_df.dropna().reset_index()
+ 
         print("Reading training data...")
         train_set = NERDataset(container.train_ner_df,tokenizer,params['maxlen'],True,labels_to_ids,params['tokenizer_args'])
         train_loader = DataLoader(train_set, batch_size=params['train_bs'])

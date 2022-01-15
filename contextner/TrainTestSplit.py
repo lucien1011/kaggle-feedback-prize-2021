@@ -10,7 +10,7 @@ class TrainTestSplit(Module):
         if 'seed' in params: set_seed(params['seed'])
          
         container.read_item_from_dir('ner_df','df_csv',args=dict(),mod_name=params['input_mod'])
-        for f in ['ent','ignore_words']:
+        for f in ['ent',]:
             container.ner_df[f] = container.ner_df[f].apply(lambda x: eval(x))
 
         group_kfold = GroupKFold(**params['split_args'])

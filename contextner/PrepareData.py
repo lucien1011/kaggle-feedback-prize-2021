@@ -17,7 +17,7 @@ class PrepareData(Module):
         container.read_item_from_dir(params['train_ner_df'],'df_csv',args=dict(),mod_name=params['input_mod'],newkey='train_ner_df')
         container.read_item_from_dir(params['test_ner_df'],'df_csv',args=dict(),mod_name=params['input_mod'],newkey='test_ner_df')
        
-        for f in ['ent','ignore_words']:
+        for f in ['ent',]:
             container.train_ner_df[f] = container.train_ner_df[f].apply(lambda x: eval(x))
             container.test_ner_df[f] = container.test_ner_df[f].apply(lambda x: eval(x))
 
@@ -32,13 +32,21 @@ class PrepareData(Module):
         container.test_ner_df = container.test_ner_df.dropna().reset_index()
 
         print("Reading training data...")
-        train_set = ContextNERDataset(container.train_ner_df,tokenizer,params['maxlen'],True,labels_to_ids,params['tokenizer_args'])
+        train_set = ContextNERDataset(
+                container.train_ner_df,tokenizer,params['maxlen'],
+                True,labels_to_ids,params['tokenizer_args'],
+                params['context_labels']
+                )
         train_loader = DataLoader(train_set, batch_size=params['train_bs'])
         container.add_item('train_set',train_set,'torch_dataset',mode='read')
         container.add_item('train_loader',train_loader,'torch_dataloader',mode='read')
         
         print("Reading validation data...")
-        val_set = ContextNERDataset(container.test_ner_df,tokenizer,params['maxlen'],True,labels_to_ids,params['tokenizer_args'])
+        val_set = ContextNERDataset(
+                container.test_ner_df,tokenizer,params['maxlen'],
+                True,labels_to_ids,params['tokenizer_args'],
+                params['context_labels']
+                )
         val_loader = DataLoader(val_set, batch_size=params['val_bs'])
         container.add_item('val_set',val_set,'torch_dataset',mode='read')
         container.add_item('val_loader',val_loader,'torch_dataloader',mode='read')

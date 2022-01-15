@@ -8,15 +8,14 @@ def inference(batch,tokenizer,model,ids_to_labels,device,true_labels=None):
                 
     ids = batch['input_ids'].to(device, dtype = torch.long)
     mask = batch['attention_mask'].to(device, dtype = torch.long)
-    context_ids = batch['context_input_ids'].to(device, dtype = torch.long)
-    context_mask = batch['context_attention_mask'].to(device, dtype = torch.long)
+    glob_mask = batch['global_attention_mask'].to(device, dtype = torch.long)
     outputs = model(
             input_ids=ids, 
-            attn_masks=mask, 
-            context_input_ids=context_ids, 
-            context_attn_masks=context_mask,
+            attention_mask=mask,
+            global_attention_mask=glob_mask,
+            return_dict=True,
             )
-    all_preds = torch.argmax(outputs[1], axis=-1).cpu().numpy()
+    all_preds = torch.argmax(outputs['logits'], axis=-1).cpu().numpy()
     predictions,tokens,labels = [],[],[]
     for k,text_preds in enumerate(all_preds):
         token_preds = [ids_to_labels[i] for i in text_preds]

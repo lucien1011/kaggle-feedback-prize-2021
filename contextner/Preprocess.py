@@ -17,18 +17,10 @@ def construct_contextner_df(discourse_df,text_df):
             discourse = j[1]['discourse_type']
             discourse_text = j[1]['discourse_text']
             list_ix = [int(x) for x in j[1]['predictionstring'].split(' ')]
-            if discourse in ['Lead', 'Position','Concluding Statement']:
-                context_text += discourse_text
-                for k in list_ix: ignore_words[k] = 1
-            elif discourse in ['Claim','Counterclaim','Rebuttal','Evidence']:
-                entities[list_ix[0]] = f"B-{discourse}"
-                for k in list_ix[1:]: entities[k] = f"I-{discourse}"
+            entities[list_ix[0]] = f"B-{discourse}"
+            for k in list_ix[1:]: entities[k] = f"I-{discourse}"
         all_entities.append(entities)
-        all_contexts.append(context_text)
-        all_ignore_words.append(ignore_words)
     text_df['ent'] = all_entities
-    text_df['context'] = all_contexts
-    text_df['ignore_words'] = all_ignore_words
     return text_df
 
 class Preprocess(Module):

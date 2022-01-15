@@ -17,13 +17,13 @@ from utils import set_seed
 def model_name_in_path(fname):
     return fname.replace('/','-')
 
-def train_one_step(ids,mask,context_ids,context_mask,labels,model,optimizer,params):
+def train_one_step(ids,mask,glob_mask,labels,model,optimizer,params):
     loss,logits = model(
             input_ids=ids, 
-            attn_masks=mask, 
-            context_input_ids=context_ids, 
-            context_attn_masks=context_mask,
+            attention_mask=mask,
+            global_attention_mask=glob_mask,
             labels=labels,
+            return_dict=False,
             )
     torch.nn.utils.clip_grad_norm_(
         parameters=model.parameters(),max_norm=params['max_grad_norm']
@@ -34,17 +34,12 @@ def train_one_step(ids,mask,context_ids,context_mask,labels,model,optimizer,para
     return loss,logits
 
 def evaluate_accuracy_one_step(labels,logits,num_labels):
-    flattened_targets = labels.view(-1) # shape (batch_size * seq_len,)
-    active_logits = logits.view(-1, num_labels) # shape (batch_size * seq_len, num_labels)
-    flattened_predictions = torch.argmax(active_logits, axis=1) # shape (batch_size * seq_len,)
-    
-    # only compute accuracy at active labels
-    active_accuracy = labels.view(-1) != -100 # shape (batch_size, seq_len)
-    #active_labels = torch.where(active_accuracy, labels.view(-1), torch.tensor(-100).type_as(labels))
-    
+    flattened_targets = labels.view(-1)
+    active_logits = logits.view(-1, num_labels)
+    flattened_predictions = torch.argmax(active_logits, axis=1)
+    active_accuracy = labels.view(-1) != -100 
     labels = torch.masked_select(flattened_targets, active_accuracy)
-    predictions = torch.masked_select(flattened_predictions, active_accuracy)
-    
+    predictions = torch.masked_select(flattened_predictions, active_accuracy) 
     return accuracy_score(labels.cpu().numpy(), predictions.cpu().numpy())
 
 def evaluate_score(discourse_df,val_loader,model,ids_to_labels,device):
@@ -82,14 +77,13 @@ class Train(TorchModule):
            
             tr_loss,tr_step = 0.,1.
             for idx, batch in enumerate(tqdm(container.train_loader)):
-                
+               
                 ids = batch['input_ids'].to(self.device, dtype = torch.long)
                 mask = batch['attention_mask'].to(self.device, dtype = torch.long)
+                glob_mask = batch['global_attention_mask'].to(self.device, dtype = torch.long)
                 labels = batch['labels'].to(self.device, dtype = torch.long)
-                context_ids = batch['context_input_ids'].to(self.device, dtype = torch.long)
-                context_mask = batch['context_attention_mask'].to(self.device, dtype = torch.long)
                 
-                loss,tr_logits = train_one_step(ids,mask,context_ids,context_mask,labels,self.model,self.optimizer,params)
+                loss,tr_logits = train_one_step(ids,mask,glob_mask,labels,self.model,self.optimizer,params)
                 
                 if idx % params['print_every']==0:
                     tqdm.write(f"Training loss after {idx:04d} training steps: {tr_loss/tr_step}")

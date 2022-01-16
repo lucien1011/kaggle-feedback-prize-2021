@@ -4,19 +4,19 @@ import qa
 from utils import read_attr_conf
 
 conf = dict(
-    base_dir='storage/output/220110_ner_longformer/',
+    base_dir='storage/output/220115_ner_longformer/',
 
     slurm=dict(
         fname='slurm.cfg',
         pyscript='run_qa.py',
-        name='220110_ner_longformer',
+        name='220115_ner_longformer-base',
         memory='32gb',
         email='kin.ho.lo@cern.ch',
         time='04:00:00',
         gpu='a100',
         ncore='1',
         ntasks='1',
-        commands='python3 220110_ner_longformer.py',
+        commands='python3 220115_ner_longformer.py',
     ),
  
     NERPrepareData=dict(
@@ -32,7 +32,7 @@ conf = dict(
             padding='max_length', 
             truncation=True, 
         ),
-        maxlen=1024,
+        maxlen=2048,
         bert_model="allenai/longformer-base-4096",
         train_bs=4,
         val_bs=128,
@@ -44,13 +44,14 @@ conf = dict(
         bert_model="allenai/longformer-base-4096",
         config_args = dict(num_labels=15),
         model_name='model',
-        saved_model='storage/output/220110_ner_longformer/NERTrain/allenai-longformer-base-4096_valscore0.59635_ep2.pt',
+        saved_model='storage/output/220115_ner_longformer/NERTrain/allenai-longformer-base-4096_valscore0.59469_ep2.pt',
         ),
 
     NERTrain=dict(
         model_name='model',
-        lr= [2.5e-5, 2.5e-5, 2.5e-5, 2.5e-5, 2.5e-6],
-        epochs=5,
+        #lr= [2.5e-5, 2.5e-5, 2.5e-6, 2.5e-6, 2.5e-7],
+        lr= [2.5e-6, 2.5e-6, 2.5e-6, 2.5e-6, 2.5e-7],
+        epochs=3,
         print_every=200,
         max_grad_norm=10.,
         seed=42,
@@ -78,10 +79,10 @@ conf = dict(
 pipelines = [
         ('NERPrepareData',ner.PrepareData()),
         ('NERLoadModel',ner.LoadModel()),
-        #('NERTrain',ner.Train()),
-        #('NERInfer',ner.Infer()),
-        ('NERPredictionString',ner.PredictionString()),
-        ('NEREvaluateScore',ner.EvaluateScore()),
+        ('NERTrain',ner.Train()),
+        ('NERInfer',ner.Infer()),
+        #('NERPredictionString',ner.PredictionString()),
+        #('NEREvaluateScore',ner.EvaluateScore()),
         ]
 
 if __name__ == "__main__":

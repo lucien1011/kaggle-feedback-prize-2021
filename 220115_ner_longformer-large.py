@@ -44,13 +44,14 @@ conf = dict(
         bert_model="allenai/longformer-large-4096",
         config_args = dict(num_labels=15),
         model_name='model',
-        saved_model='storage/output/220110_ner_longformer-large/NERTrain/allenai-longformer-large-4096_valscore0.61247_ep4.pt',
+        saved_model='storage/output/220115_ner_longformer-large/NERTrain/allenai-longformer-large-4096_valscore0.61503_ep1.pt',
         ),
 
     NERTrain=dict(
         model_name='model',
-        lr= [2.5e-6, 2.5e-6, 2.5e-6, 2.5e-6, 2.5e-6],
-        epochs=5,
+        #lr= [2.5e-6, 2.5e-6, 2.5e-6, 2.5e-6, 2.5e-6],
+        lr= [2.5e-7, 2.5e-7, 2.5e-7,],
+        epochs=3,
         print_every=200,
         max_grad_norm=10.,
         seed=42,

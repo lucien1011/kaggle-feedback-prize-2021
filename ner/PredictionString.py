@@ -3,7 +3,11 @@ from tqdm import tqdm
 
 from pipeline import Module
 
-def get_string_bi(idx,pred,minword=7):
+def get_string_bi(
+        idx,pred,
+        minword=7,
+        min_words_thresh = {},
+        ):
     preds = []
     j = 0
     while j < len(pred):
@@ -13,8 +17,9 @@ def get_string_bi(idx,pred,minword=7):
         end = j + 1
         while end < len(pred) and pred[end] == cls:
             end += 1
-        
-        if cls != 'O' and cls != '' and end - j > minword:
+       
+        min_word_threshold = minword if not min_words_thresh else min_words_thresh[cls]
+        if cls != 'O' and cls != '' and end - j > min_word_thresh:
             preds.append((idx, cls.replace('I-',''),
                                  ' '.join(map(str, list(range(j, end))))))
         j = end

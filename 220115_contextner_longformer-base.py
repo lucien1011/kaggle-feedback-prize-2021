@@ -43,7 +43,7 @@ conf = dict(
         bert_model="allenai/longformer-base-4096",
         train_bs=4,
         val_bs=32,
-        labels=['O','B-Lead','I-Lead','B-Claim', 'I-Claim', 'B-Counterclaim', 'I-Counterclaim', 'B-Rebuttal', 'I-Rebuttal', 'B-Evidence', 'I-Evidence',],
+        labels=['O', 'B-Lead', 'I-Lead', 'B-Position', 'I-Position', 'B-Claim', 'I-Claim', 'B-Counterclaim', 'I-Counterclaim', 'B-Rebuttal', 'I-Rebuttal', 'B-Evidence', 'I-Evidence', 'B-Concluding Statement', 'I-Concluding Statement'],
         context_labels=['B-Position','I-Position','B-Concluding Statement', 'I-Concluding Statement',],
         ),
 
@@ -51,7 +51,7 @@ conf = dict(
         seed=42,
         type='AutoModelForTokenClassification',
         bert_model="allenai/longformer-base-4096",
-        config_args = dict(num_labels=11),
+        config_args = dict(num_labels=15),
         model_name='model',
         ),
 

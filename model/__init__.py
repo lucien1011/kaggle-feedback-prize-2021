@@ -4,3 +4,4 @@ from .BigBirdForTokenClassification import BigBirdForTokenClassification
 from .BigBirdAttHeadForTokenClassification import BigBirdAttHeadForTokenClassification
 from .ContextModelForTokenClassification import ContextModelForTokenClassification
 from .SlideWindowModel import SlideWindowModel
+from .AttentionHeadModel import AttentionHeadModel

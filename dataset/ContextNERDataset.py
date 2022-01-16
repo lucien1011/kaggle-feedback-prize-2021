@@ -33,11 +33,10 @@ class ContextNERDataset(Dataset):
             for i,word_idx in enumerate(word_ids):                            
                 if word_idx is None:
                     label_ids.append(-100)
-                elif word_labels[word_idx] in self.context_labels:
-                    label_ids.append(-100)
-                    glob_attn_mask[i] = 1
                 else:
                     label_ids.append( self.labels_to_ids[word_labels[word_idx]] )
+                    if word_labels[word_idx] in self.context_labels:
+                        glob_attn_mask[i] = 1
             encoding['labels'] = label_ids
             encoding['global_attention_mask'] = glob_attn_mask
 

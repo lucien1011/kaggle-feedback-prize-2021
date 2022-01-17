@@ -5,3 +5,4 @@ from .BigBirdAttHeadForTokenClassification import BigBirdAttHeadForTokenClassifi
 from .ContextModelForTokenClassification import ContextModelForTokenClassification
 from .SlideWindowModel import SlideWindowModel
 from .AttentionHeadModel import AttentionHeadModel
+from .ContrastLearningModel import ContrastLearningModel

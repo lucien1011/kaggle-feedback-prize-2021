@@ -5,3 +5,4 @@ from .NERDataset import NERDataset
 from .QADataset import QADataset
 from .ContextNERDataset import ContextNERDataset
 from .SlideWindowDataset import SlideWindowDataset
+from .ContrastLearningDataset import ContrastLearningDataset

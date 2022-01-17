@@ -18,7 +18,7 @@ def get_string_bi(
         while end < len(pred) and pred[end] == cls:
             end += 1
        
-        min_word_threshold = minword if not min_words_thresh else min_words_thresh[cls]
+        min_word_thresh = minword if not min_words_thresh else min_words_thresh[cls]
         if cls != 'O' and cls != '' and end - j > min_word_thresh:
             preds.append((idx, cls.replace('I-',''),
                                  ' '.join(map(str, list(range(j, end))))))

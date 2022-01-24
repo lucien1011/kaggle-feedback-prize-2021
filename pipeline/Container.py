@@ -9,6 +9,7 @@ fname_ext_map = {
         'df_csv': '.csv',
         'pickle': '.p',
         'torch_model': '.pt',
+        'matplotlib_fig+ax': '.png',
         }
 
 class Container(object):
@@ -71,6 +72,9 @@ class Container(object):
             pickle.dump(obj,open(path,'wb'))
         elif ftype == 'torch_model':
             torch.save(obj,path)
+        elif ftype == 'matplotlib_fig+ax':
+            fig,ax = obj
+            fig.savefig(path)
         else:
             raise RuntimeError
         print('Object {} has been saved as type {}'.format(fname,ftype))

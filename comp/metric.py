@@ -69,8 +69,8 @@ def score_feedback_comp(pred_df, gt_df, pred_label):
     FP = len(fp_pred_ids)
     FN = len(unmatched_gt_ids)
     #calc microf1
-    my_f1_score = TP / (TP + 0.5*(FP+FN))
-    return my_f1_score
+    F1 = TP / (TP + 0.5*(FP+FN))
+    return F1,TP,FP,FN
 
 def evaluate_score_from_df(discourse_df,pred_df,pred_label='class'):
     f1s = []

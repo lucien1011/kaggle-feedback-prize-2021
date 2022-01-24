@@ -6,3 +6,5 @@ from .ContextModelForTokenClassification import ContextModelForTokenClassificati
 from .SlideWindowModel import SlideWindowModel
 from .AttentionHeadModel import AttentionHeadModel
 from .ContrastLearningModel import ContrastLearningModel
+from .TextSegmentationModel import TextSegmentationModel
+from .NERModel import NERModel

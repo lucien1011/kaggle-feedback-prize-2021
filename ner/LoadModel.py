@@ -16,7 +16,7 @@ class LoadModel(TorchModule):
             model = AutoModelForTokenClassification.from_pretrained(params['bert_model'],config=config_model)
         elif params['type'] == 'CustomModel':
             config_model = AutoConfig.from_pretrained(params['bert_model'],**params.get('config_args',{})) 
-            model = eval(params['custom_model']).from_pretrained(params['bert_model'],config=config_model)
+            model = eval(params['custom_model'])(**params['args'])
         else:
             raise NotImplementedError
 

@@ -19,6 +19,10 @@ class Container(object):
         self.items_to_write = {}
         self.items_to_read = {}
 
+    def create_base_dir(self):
+        if self.base_dir:
+            mkdir_p(self.base_dir)
+
     def add_item(self,name,item,ftype,mode='read'):
         if mode == 'read':
             self.items_to_read[name] = (item,ftype)

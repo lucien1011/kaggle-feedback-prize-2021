@@ -79,6 +79,7 @@ class BasePipeline(object):
         self.steps = list(self.steps)
         self._validate_steps() 
 
+        self.container.create_base_dir()
         for (step_idx, name, mods) in self._iter():
             if isinstance(mods,Module):
                 mods = [mods]

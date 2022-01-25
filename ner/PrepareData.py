@@ -14,8 +14,13 @@ class PrepareData(Module):
         if 'seed' in params: set_seed(params['seed'])
          
         container.read_item_from_path('discourse_df',params['discourse_df_path'],'df_csv')
-        container.read_item_from_dir(params['train_ner_df'],'df_csv',args=dict(index_col=0),mod_name=params['input_mod'],newkey='train_ner_df')
-        container.read_item_from_dir(params['test_ner_df'],'df_csv',args=dict(index_col=0),mod_name=params['input_mod'],newkey='test_ner_df')
+        
+        if 'input_mod' in params:
+            container.read_item_from_dir(params['train_ner_df'],'df_csv',args=dict(index_col=0),mod_name=params['input_mod'],newkey='train_ner_df')
+            container.read_item_from_dir(params['test_ner_df'],'df_csv',args=dict(index_col=0),mod_name=params['input_mod'],newkey='test_ner_df')
+        else:
+            container.read_item_from_path('train_ner_df',params['train_ner_df'],'df_csv')
+            container.read_item_from_path('test_ner_df',params['test_ner_df'],'df_csv')
         
         container.train_ner_df['ents'] = container.train_ner_df['ents'].apply(lambda x: eval(x))
         container.test_ner_df['ents'] = container.test_ner_df['ents'].apply(lambda x: eval(x))

@@ -49,6 +49,7 @@ class EvaluateScoreVsThreshold(Module):
                 ax.plot(params['prob_thresholds'],f1s)
                 container.add_item('ScoreVsProbThresh_'+c,(fig,ax),'matplotlib_fig+ax',mode='write')
             
+            f1s = []
             for thresh in params['len_thresholds']:
                 get_predstr_df_args = copy.deepcopy(params.get('get_predstr_df_args',{}))
                 get_predstr_df_args['get_string_args']['min_words_thresh'][c] = thresh                

@@ -16,14 +16,15 @@ def get_string_bi(
         cls = pred[j]
         tot_score = 0.
 
-        if cls == 'O':
+        if cls == 'O' or cls.startswith('I-'):
             j += 1
-        else: 
-            cls = cls.replace('B-','').replace('I-','') # spans start with B
+            continue
+        elif cls.startswith('B-'): 
+            cls = cls.replace('B-','')
         
         end = j + 1
         
-        while end < len(pred) and pred[end].replace('B-','').replace('I-','') == cls:
+        while end < len(pred) and pred[end].replace('I-','') == cls:
             tot_score += score[j]
             end += 1
 

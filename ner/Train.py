@@ -18,7 +18,9 @@ def model_name_in_path(fname):
     return fname.replace('/','-')
 
 def train_one_step(ids,mask,labels,model,optimizer,params):
-    loss, tr_logits = model(input_ids=ids, attention_mask=mask, labels=labels,return_dict=False)
+    out = model(input_ids=ids, attention_mask=mask, labels=labels,return_dict=True)
+    loss = out['loss']
+    tr_logits = out['logits']
     torch.nn.utils.clip_grad_norm_(
         parameters=model.parameters(),max_norm=params['max_grad_norm']
     )
@@ -75,7 +77,6 @@ class Train(TorchModule):
             self.model.train()
             
             for idx, batch in enumerate(tqdm(container.train_loader)):
- 
                 ids = batch['input_ids'].to(self.device, dtype = torch.long)
                 mask = batch['attention_mask'].to(self.device, dtype = torch.long)
                 labels = batch['labels'].to(self.device, dtype = torch.long)
@@ -86,13 +87,13 @@ class Train(TorchModule):
                     tqdm.write(f"Training loss after {idx:04d} training steps: {loss.item()}")
             
             val_score = evaluate_score(container.discourse_df,container.val_loader,self.model,container.ids_to_labels,self.device)
-            tqdm.write(f"Validation score at this epoch: {val_score}") 
+            tqdm.write(f"Validation score at this epoch: {val_score}")
+            save_model_name = '{}_valscore{}_ep{}'.format(model_name_in_path(params['bert_model']), round(val_score, 5), epoch)
+            container.save_one_item(save_model_name,self.model.state_dict(),'torch_model',check_dir=True) 
             if val_score > best_score:
                 tqdm.write("Best validation score improved from {} to {}".format(best_score, val_score))
                 best_model = copy.deepcopy(self.model)
                 best_score = val_score
-                best_model_name = '{}_valscore{}_ep{}'.format(model_name_in_path(params['bert_model']), round(best_score, 5), epoch)
-                container.save_one_item(best_model_name,best_model.state_dict(),'torch_model',check_dir=True) 
 
             torch.cuda.empty_cache()
             gc.collect()

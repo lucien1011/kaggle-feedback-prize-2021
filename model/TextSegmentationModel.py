@@ -50,6 +50,7 @@ class TextSegmentationModel(nn.Module):
         logits = self.bert_layer(input_ids, attention_mask).logits
         logits,_ = self.lstm(logits)
         logits = self.cls_layer(logits)
+        probs = torch.softmax(logits,dim=-1)
 
         loss = None
         if labels is not None:
@@ -64,4 +65,12 @@ class TextSegmentationModel(nn.Module):
                 loss = loss_fct(active_logits, active_labels)
             else:
                 loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
-        return loss,logits
+        
+        if return_dict:
+            return dict(
+                loss=loss,
+                logits=logits,
+                probs=probs
+            )
+        else:
+            return loss,logits,probs

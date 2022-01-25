@@ -81,8 +81,8 @@ def evaluate_score_from_df(discourse_df,pred_df,pred_label='class'):
     for c in CLASSES:
         pred_df_per_c = pred_df.loc[pred_df[pred_label]==c].copy()
         gt_df_per_c = gt_df.loc[gt_df['discourse_type']==c].copy()
-        f1 = score_feedback_comp(pred_df_per_c, gt_df_per_c, pred_label) if len(gt_df_per_c) != 0 else 0.
-        print(c,f1)
+        f1,tp,fp,fn = score_feedback_comp(pred_df_per_c, gt_df_per_c, pred_label) if len(gt_df_per_c) != 0 else 0.
+        print(c,f1,tp,fp,fn)
         f1s.append(f1)
     mean_f1_score = np.mean(f1s)
     print()

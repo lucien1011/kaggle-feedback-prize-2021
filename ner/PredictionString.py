@@ -66,7 +66,7 @@ def link_evidence(oof):
     idc = idu[1]
     eoof = oof[oof['class'] == "Evidence"]
     neoof = oof[oof['class'] != "Evidence"]
-    for thresh2 in range(26,27, 1):
+    for thresh2 in range(20,21, 1):
         retval = []
         for idv in tqdm(idu): #
             for c in  ['Lead', 'Position', 'Evidence', 'Claim', 'Concluding Statement',
@@ -104,7 +104,7 @@ def get_predstr_df(pred_df,ner_type='bi',get_string_args={}):
             preds.extend(get_string_be(idx,pred,**get_string_args))
     df = pd.DataFrame(preds)
     if preds: df.columns = ['id','class','predictionstring']
-    #df = link_evidence(df)
+    df = link_evidence(df)
     return df
 
 class PredictionString(Module):

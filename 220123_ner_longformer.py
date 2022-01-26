@@ -18,7 +18,20 @@ conf = dict(
         ntasks='1',
         commands='python3 220123_ner_longformer.py',
     ),
- 
+
+    NERPreprocess=dict(
+        discourse_df_csv_path='storage/train.csv',
+        text_df_csv_path='storage/text.csv',
+        ),
+    
+    NERTrainTestSplit=dict(
+        discourse_df_path='storage/train.csv',
+        input_mod='Preprocess/',
+        split_type='MultilabelStratifiedKFold',
+        split_args=dict(n_splits=5,shuffle=True,random_state=42),
+        seed=42,
+        ),
+
     NERPrepareData=dict(
         discourse_df_path='storage/train.csv',
         input_mod='NERTrainTestSplit/',
@@ -136,13 +149,15 @@ conf = dict(
 )
 
 pipelines = [
+        #('NERPreprocess',ner.Preprocess()),
+        ('NERTrainTestSplit',ner.TrainTestSplit()),
         #('NERPrepareData',ner.PrepareData()),
         #('NERLoadModel',ner.LoadModel()),
         #('NERTrain',ner.Train()),
         #('NERInfer',ner.Infer()),
         #('NERPredictionString',ner.PredictionString()),
         #('NEREvaluateScore',ner.EvaluateScore()),
-        ('NEREvaluateScoreVsThreshold',ner.EvaluateScoreVsThreshold()),
+        #('NEREvaluateScoreVsThreshold',ner.EvaluateScoreVsThreshold()),
         ]
 
 if __name__ == "__main__":

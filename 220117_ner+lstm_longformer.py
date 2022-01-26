@@ -73,23 +73,80 @@ conf = dict(
         ),
 
     NERPredictionString=dict(
-        pred_df_name='pred_df',
+        pred_df_name='storage/output/220117_ner+lstm_longformer/NERPredictionString/pred_df.csv',
         submission_df_name='submission_df',
+        get_predstr_df_args=dict(
+            ner_type='bi',
+            get_string_args=dict(
+                min_words_thresh={
+                    "Lead": 7,
+                    "Position": 2,
+                    "Evidence": 7,
+                    "Claim": 2,
+                    "Concluding Statement": 20,
+                    "Counterclaim": 7,
+                    "Rebuttal": 2,
+                },
+                min_probs_thresh={
+                    "Lead": 0.2,
+                    "Position": 0.2,
+                    "Evidence": 0.2,
+                    "Claim": 0.2,
+                    "Concluding Statement": 0.2,
+                    "Counterclaim": 0.2,
+                    "Rebuttal": 0.2,
+                    },
+                ),
+            ),
         ),
 
     NEREvaluateScore=dict(
-        discourse_df_name='discourse_df',
+        discourse_df_name='storage/train.csv',
         submission_df_name='submission_df',
+        ),
+
+    NEREvaluateScoreVsThreshold=dict(
+        discourse_df_name='storage/train.csv',
+        pred_df_name='storage/output/220117_ner+lstm_longformer/NERPredictionString/pred_df.csv',
+        classes=['Lead','Position','Evidence','Claim','Concluding Statement','Counterclaim','Rebuttal',],
+        #prob_thresholds=[0.1*i for i in range(0,10)],
+        #len_thresholds=[],
+        prob_thresholds=[],
+        len_thresholds=list(range(2,21)),
+        get_predstr_df_args=dict(
+            ner_type='bi',
+            get_string_args=dict(
+                min_words_thresh={
+                    "Lead": 7,
+                    "Position": 2,
+                    "Evidence": 7,
+                    "Claim": 2,
+                    "Concluding Statement": 20,
+                    "Counterclaim": 7,
+                    "Rebuttal": 2,
+                },
+                min_probs_thresh={
+                    "Lead": 0.5,
+                    "Position": 0.5,
+                    "Evidence": 0.5,
+                    "Claim": 0.5,
+                    "Concluding Statement": 0.5,
+                    "Counterclaim": 0.5,
+                    "Rebuttal": 0.5,
+                    },
+                ),
+            ),
         ),
 )
 
 pipelines = [
-        ('NERPrepareData',ner.PrepareData()),
-        ('NERLoadModel',ner.LoadModel()),
+        #('NERPrepareData',ner.PrepareData()),
+        #('NERLoadModel',ner.LoadModel()),
         #('NERTrain',ner.Train()),
-        ('NERInfer',ner.Infer()),
+        #('NERInfer',ner.Infer()),
         ('NERPredictionString',ner.PredictionString()),
         ('NEREvaluateScore',ner.EvaluateScore()),
+        #('NEREvaluateScoreVsThreshold',ner.EvaluateScoreVsThreshold()),
         ]
 
 if __name__ == "__main__":

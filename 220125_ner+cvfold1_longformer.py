@@ -71,19 +71,19 @@ conf = dict(
         ),
 
     NERPredictionString=dict(
-        pred_df_name='storage/output/220123_ner_longformer/NERInfer/pred_df.csv',
+        pred_df_name='storage/output/220125_ner+cvfold1_longformer/NERInfer/pred_df.csv',
         submission_df_name='submission_df',
         get_predstr_df_args=dict(
             ner_type='bi',
             get_string_args=dict(
                 min_words_thresh={
-                    "Lead": 9,
-                    "Position": 5,
+                    "Lead": 5,
+                    "Position": 2,
                     "Evidence": 20,
-                    "Claim": 4,
+                    "Claim": 2,
                     "Concluding Statement": 11,
                     "Counterclaim": 6,
-                    "Rebuttal": 4,
+                    "Rebuttal": 2,
                 },
                 min_probs_thresh={
                     "Lead": 0.2,
@@ -105,7 +105,7 @@ conf = dict(
 
     NEREvaluateScoreVsThreshold=dict(
         discourse_df_name='storage/train.csv',
-        pred_df_name='storage/output/220125_ner_longformer/NERInfer/pred_df.csv',
+        pred_df_name='storage/output/220125_ner+cvfold0_longformer/NERInfer/pred_df.csv',
         classes=['Lead','Position','Evidence','Claim','Concluding Statement','Counterclaim','Rebuttal',],
         prob_thresholds=[0.1*i for i in range(1,10)],
         len_thresholds=list(range(2,20)),
@@ -138,10 +138,10 @@ conf = dict(
 pipelines = [
         #('NERPreprocess',ner.Preprocess()),
         #('NERTrainTestSplit',ner.TrainTestSplit()),
-        ('NERPrepareData',ner.PrepareData()),
-        ('NERLoadModel',ner.LoadModel()),
-        ('NERTrain',ner.Train()),
-        ('NERInfer',ner.Infer()),
+        #('NERPrepareData',ner.PrepareData()),
+        #('NERLoadModel',ner.LoadModel()),
+        #('NERTrain',ner.Train()),
+        #('NERInfer',ner.Infer()),
         ('NERPredictionString',ner.PredictionString()),
         ('NEREvaluateScore',ner.EvaluateScore()),
         #('NEREvaluateScoreVsThreshold',ner.EvaluateScoreVsThreshold()),

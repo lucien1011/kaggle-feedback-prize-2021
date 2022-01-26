@@ -1,8 +1,9 @@
+import numpy as np
 import torch
 from torch.cuda.amp import autocast
 import torch.nn as nn
-
 from transformers import AutoModel,AutoConfig
+from tqdm import tqdm
 
 hidden_size_map = {
         'google/bigbird-roberta-base': 768,
@@ -90,3 +91,18 @@ class NERModel(nn.Module):
             )
         else:
             return loss,logits,probs
+
+    def predict(self,
+            dataloader,
+            show_iters=True,
+            device='cuda',
+            ):
+        probs = []
+        batches = tqdm(dataloader) if show_iters else dataloader
+        for batch in batches:
+            ids = batch['input_ids'].to(device)
+            mask = batch['attention_mask'].to(device)
+            out = self(ids,mask,return_dict=True)
+            prob = out['probs'].cpu().numpy()
+            probs.append(prob)
+        return np.concatenate(probs)

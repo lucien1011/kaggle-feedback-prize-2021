@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import pandas as pd
 import pickle
 import torch
@@ -7,6 +8,7 @@ from utils import mkdir_p
 
 fname_ext_map = {
         'df_csv': '.csv',
+        'np_arr': '.npy',
         'pickle': '.p',
         'torch_model': '.pt',
         'matplotlib_fig+ax': '.png',
@@ -35,7 +37,9 @@ class Container(object):
         if ftype == 'df_csv':
             obj = pd.read_csv(path,**args)
         elif ftype == 'pickle':
-            obj = pickle.load(open(path),'wb')
+            obj = pickle.load(open(path,'rb'))
+        elif ftype == 'np_arr':
+            obj = np.load(open(path,'rb'),**args)
         else:
             raise RuntimeError
         self.add_item(name,obj,ftype,mode='read')
@@ -72,6 +76,8 @@ class Container(object):
             mkdir_p(os.path.dirname(path))
         if ftype == 'df_csv':
             obj.to_csv(path,index=False)
+        elif ftype == 'np_arr':
+            np.save(open(path,'wb'),obj)
         elif ftype == 'pickle':
             pickle.dump(obj,open(path,'wb'))
         elif ftype == 'torch_model':

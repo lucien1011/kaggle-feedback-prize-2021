@@ -48,7 +48,20 @@ class NERModel(nn.Module):
         self.dropout_layers = nn.ModuleList([nn.Dropout(p=do) for do in self.dropouts])
         self.cls_layer = nn.Linear(config.hidden_size, self.num_labels)
 
-    @autocast()
+    def loss(self,logits,labels,attention_mask):
+        loss_fct = nn.CrossEntropyLoss()
+
+        active_loss = attention_mask.view(-1) == 1
+        active_logits = logits.view(-1, self.num_labels)
+        true_labels = labels.view(-1)
+        outputs = active_logits.argmax(dim=-1)
+        idxs = np.where(active_loss.cpu().numpy() == 1)[0]
+        active_logits = active_logits[idxs]
+        true_labels = true_labels[idxs].to(torch.long)
+
+        loss = loss_fct(active_logits, true_labels)
+        return loss
+
     def forward(self, 
             input_ids,
             attention_mask,
@@ -64,24 +77,15 @@ class NERModel(nn.Module):
         sequence_output = transformer_out.last_hidden_state
         sequence_output = self.dropout(sequence_output)
 
-        logits = torch.stack(
-            [self.cls_layer(do_layer(sequence_output)) for do_layer in self.dropout_layers],
-            dim=0,
-            ).sum(dim=0) / len(self.dropouts)
-        probs = torch.softmax(logits,dim=-1)
+        logits = [self.cls_layer(do_layer(sequence_output)) for do_layer in self.dropout_layers]
 
         loss = None
         if labels is not None:
-            loss_fct = nn.CrossEntropyLoss()
-            if attention_mask is not None:
-                active_loss = attention_mask.view(-1) == 1
-                active_logits = logits.view(-1, self.num_labels)
-                active_labels = torch.where(
-                    active_loss, labels.view(-1), torch.tensor(loss_fct.ignore_index).type_as(labels)
-                )
-                loss = loss_fct(active_logits, active_labels)
-            else:
-                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            losses = [self.loss(logit,labels,attention_mask) for logit in logits]
+            loss = torch.stack(losses,dim=0).sum(dim=0) / len(self.dropouts)
+
+        logits = torch.stack(logits,dim=0).sum(dim=0) / len(self.dropouts)
+        probs = torch.softmax(logits,dim=-1)
         
         if return_dict:
             return dict(
@@ -105,4 +109,4 @@ class NERModel(nn.Module):
             out = self(ids,mask,return_dict=True)
             prob = out['probs'].cpu().numpy()
             probs.append(prob)
-        return np.concatenate(probs)
+        return probs

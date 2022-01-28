@@ -24,10 +24,10 @@ def train_one_step(ids,mask,labels,model,optimizer,scheduler,params):
     torch.nn.utils.clip_grad_norm_(
         parameters=model.parameters(),max_norm=params['max_grad_norm']
     )
-    optimizer.zero_grad()
     loss.backward()
     optimizer.step()
     scheduler.step()
+    model.zero_grad()
     return loss,tr_logits
 
 def evaluate_accuracy_one_step(labels,logits,num_labels):

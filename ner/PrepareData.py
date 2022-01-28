@@ -37,7 +37,7 @@ class PrepareData(Module):
  
         print("Reading training data...")
         train_set = NERDataset(container.train_ner_df,tokenizer,params['maxlen'],True,labels_to_ids,params['tokenizer_args'])
-        train_loader = DataLoader(train_set, batch_size=params['train_bs'])
+        train_loader = DataLoader(train_set, batch_size=params['train_bs'], shuffle=True)
         container.add_item('train_set',train_set,'torch_dataset',mode='read')
         container.add_item('train_loader',train_loader,'torch_dataloader',mode='read')
         

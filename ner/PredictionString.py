@@ -7,8 +7,24 @@ def get_string_bi(
         idx,pred,score,
         minword=7,
         minprob=0.5,
-        min_words_thresh = {},
-        min_probs_thresh = {},
+        min_words_thresh = {
+            "Lead": 9,
+            "Position": 5,
+            "Evidence": 14,
+            "Claim": 3,
+            "Concluding Statement": 11,
+            "Counterclaim": 6,
+            "Rebuttal": 4,
+        },
+        min_probs_thresh = {
+            "Lead": 9,
+            "Position": 5,
+            "Evidence": 14,
+            "Claim": 3,
+            "Concluding Statement": 11,
+            "Counterclaim": 6,
+            "Rebuttal": 4, 
+        },
         ):
     preds = []
     j = 0
@@ -104,7 +120,7 @@ def get_predstr_df(pred_df,ner_type='bi',get_string_args={}):
             preds.extend(get_string_be(idx,pred,**get_string_args))
     df = pd.DataFrame(preds)
     if preds: df.columns = ['id','class','predictionstring']
-    df = link_evidence(df)
+    #df = link_evidence(df)
     return df
 
 class PredictionString(Module):

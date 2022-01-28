@@ -19,7 +19,7 @@ conf = dict(
         commands='python3 '+name+'py',
     ),
 
-    NERPreprocess=dict(
+    NERPreprocessKFold=dict(
         discourse_df_csv_path='storage/train_folds.csv',
         fold=0,
         bert_model="allenai/longformer-base-4096",
@@ -34,7 +34,7 @@ conf = dict(
 )
 
 pipelines = [
-        ('NERPreprocess',baseline.Preprocess()),
+        ('NERPreprocessKFold',baseline.PreprocessKFold()),
         ]
 
 if __name__ == "__main__":

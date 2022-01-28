@@ -2,22 +2,20 @@ import copy
 import gc
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 from transformers import AdamW,get_cosine_schedule_with_warmup
 
 from comp import evaluate_score_from_df
-from .Infer import get_pred_df
-from .PredictionString import get_predstr_df
+from .PredictionString import get_pred_df
 from pipeline import TorchModule
 from utils import set_seed
 
 def model_name_in_path(fname):
     return fname.replace('/','-')
 
-def train_one_step(ids,mask,labels,model,optimizer,scheduler,params):
+def train_one_step(ids,mask,labels,model,optimizer,scheduler,scaler,params):
     out = model(input_ids=ids, attention_mask=mask, labels=labels,return_dict=True)
     loss = out['loss']
     tr_logits = out['logits']
@@ -25,31 +23,30 @@ def train_one_step(ids,mask,labels,model,optimizer,scheduler,params):
         torch.nn.utils.clip_grad_norm_(
             parameters=model.parameters(),max_norm=params['max_grad_norm']
         )
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+    if scaler:
+        with torch.cuda.amp.autocast():
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+    else:
+        loss.backward()
+        optimizer.step()
     scheduler.step()
+    model.zero_grad()
     return loss,tr_logits
-
-def evaluate_accuracy_one_step(labels,logits,num_labels):
-    flattened_targets = labels.view(-1)
-    active_logits = logits.view(-1, num_labels)
-    flattened_predictions = torch.argmax(active_logits, axis=1) 
-    active_accuracy = labels.view(-1) != -100
-    labels = torch.masked_select(flattened_targets, active_accuracy)
-    predictions = torch.masked_select(flattened_predictions, active_accuracy) 
-    return accuracy_score(labels.cpu().numpy(), predictions.cpu().numpy())
 
 def evaluate_score(discourse_df,val_loader,model,ids_to_labels,device):
     with torch.no_grad():
-        pred_df = get_predstr_df(get_pred_df(val_loader,model,ids_to_labels,device,add_true_class=True))
+        model.eval()
+        probs = model.predict(val_loader,device=device)
+        pred_df = get_pred_df(probs,val_loader.dataset.samples,ids_to_labels)
     mean_f1_score,f1s = evaluate_score_from_df(discourse_df,pred_df)
     return mean_f1_score
 
 class Train(TorchModule):
 
     _header = '-'*100
-    _required_params = ['model_name','seed','optimizer_type']
+    _required_params = ['model_name','seed','optimizer_type',]
 
     def prepare_optimizer(self,container,params):
         if params['optimizer_type'] == 'Adam':
@@ -87,13 +84,14 @@ class Train(TorchModule):
     def prepare(self,container,params):
 
         if 'seed' in params: set_seed(params['seed'])
-
+        
         self.model = container.get(params['model_name'])
-        self.model.to(self.device)
         self.prepare_optimizer(container,params)
         self.prepare_scheduler(container,params)
+        self.scaler = torch.cuda.amp.GradScaler() if params['fp16'] else None
         
     def fit(self,container,params):
+         
         best_score = -np.Inf 
         
         for epoch in range(params['epochs']):
@@ -108,26 +106,28 @@ class Train(TorchModule):
                 tqdm.write(f'### LR = {lr}\n')
 
             self.model.train()
+            self.model.zero_grad()
             
             for idx, batch in enumerate(tqdm(container.train_loader)):
-                ids = batch['input_ids'].to(self.device, dtype = torch.long)
-                mask = batch['attention_mask'].to(self.device, dtype = torch.long)
-                labels = batch['labels'].to(self.device, dtype = torch.long)
 
-                loss,tr_logits = train_one_step(ids,mask,labels,self.model,self.optimizer,self.scheduler,params)
+                ids = batch['input_ids'].to(self.device,dtype=torch.long)
+                mask = batch['attention_mask'].to(self.device,dtype=torch.long)
+                labels = batch['labels'].to(self.device,dtype=torch.long)
+
+                loss,tr_logits = train_one_step(ids,mask,labels,self.model,self.optimizer,self.scheduler,self.scaler,params)
                 
                 if idx % params['print_every']==0:
                     tqdm.write(f"Training loss after {idx:04d} training steps: {loss.item()}")
             
-            #val_score = evaluate_score(container.discourse_df,container.val_loader,self.model,container.id_target_map,self.device)
-            #tqdm.write(f"Validation score at this epoch: {val_score}")
-            #save_model_name = '{}_valscore{}_ep{}'.format(model_name_in_path(params['bert_model']), round(val_score, 5), epoch)
-            save_model_name = '{}_ep{}'.format(model_name_in_path(params['bert_model']), epoch)
+            val_score = evaluate_score(container.discourse_df,container.val_loader,self.model,container.id_target_map,self.device)
+            tqdm.write(f"Validation score at this epoch: {val_score}")
+            save_model_name = '{}_valscore{}_ep{}'.format(model_name_in_path(params['bert_model']), round(val_score, 5), epoch)
+            #save_model_name = '{}_ep{}'.format(model_name_in_path(params['bert_model']), epoch)
             container.save_one_item(save_model_name,self.model.state_dict(),'torch_model',check_dir=True) 
-            #if val_score > best_score:
-            #    tqdm.write("Best validation score improved from {} to {}".format(best_score, val_score))
-            #    best_model = copy.deepcopy(self.model)
-            #    best_score = val_score
+            if val_score > best_score:
+                tqdm.write("Best validation score improved from {} to {}".format(best_score, val_score))
+                best_model = copy.deepcopy(self.model)
+                best_score = val_score
 
             torch.cuda.empty_cache()
             gc.collect()

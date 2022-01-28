@@ -11,6 +11,8 @@ class LoadModel(TorchModule):
     _required_params = ['type','bert_model','model_name']
     
     def prepare(self,container,params):
+        if 'seed' in params: set_seed(params['seed'])
+        
         if params['type'] == 'AutoModelForTokenClassification':
             config_model = AutoConfig.from_pretrained(params['bert_model'],**params.get('config_args',{})) 
             model = AutoModelForTokenClassification.from_pretrained(params['bert_model'],config=config_model)

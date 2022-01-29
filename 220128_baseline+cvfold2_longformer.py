@@ -2,7 +2,7 @@ from pipeline import BasePipeline
 import baseline
 from utils import read_attr_conf
 
-fold = 0
+fold = 2
 name = '220128_baseline+cvfold{:d}_longformer'.format(fold)
 
 conf = dict(

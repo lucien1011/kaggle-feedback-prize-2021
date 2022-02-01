@@ -9,4 +9,3 @@ from .LoadModel import LoadModel
 from .PredictionString import PredictionString
 from .EvaluateScore import EvaluateScore
 from .EvaluateScoreVsThreshold import EvaluateScoreVsThreshold
-from .DataFrameForQA import DataFrameForQA

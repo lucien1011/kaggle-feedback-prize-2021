@@ -2,6 +2,7 @@ import copy
 import gc
 import numpy as np
 import pandas as pd
+from sklearn import metrics
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -31,17 +32,31 @@ def train_one_step(ids,mask,labels,model,optimizer,scheduler,scaler,params):
     else:
         loss.backward()
         optimizer.step()
-    if scheduler is not None: scheduler.step()
+    scheduler.step()
     model.zero_grad()
     return loss,tr_logits
 
-def evaluate_score(discourse_df,val_loader,model,ids_to_labels,device):
+def evaluate_f1_per_batch(outputs, targets, attention_mask, num_labels):
+    active_loss = (attention_mask.view(-1) == 1).cpu().numpy()
+    active_logits = outputs.view(-1, num_labels)
+    true_labels = targets.view(-1).cpu().numpy()
+    outputs = active_logits.argmax(dim=-1).cpu().numpy()
+    idxs = np.where(active_loss == 1)[0]
+    f1_score = metrics.f1_score(true_labels[idxs], outputs[idxs], average="macro")
+    return f1_score
+
+def evaluate_score(dataloader,model,device):
     with torch.no_grad():
-        model.eval()
-        probs = model.predict(val_loader,device=device)
-        pred_df = get_pred_df(probs,val_loader.dataset.samples,ids_to_labels)
-    mean_f1_score,f1s = evaluate_score_from_df(discourse_df,pred_df)
-    return mean_f1_score
+        f1s = []
+        for batch in tqdm(dataloader):
+            ids = batch['input_ids'].to(device,dtype=torch.long)
+            mask = batch['attention_mask'].to(device,dtype=torch.long)
+            labels = batch['labels'].to(device,dtype=torch.long)
+            outputs = model(input_ids=ids,attention_mask=mask,labels=labels,return_dict=True)
+            logits = outputs['logits']
+            f1 = evaluate_f1_per_batch(logits,labels,mask,model.num_labels)
+            f1s.append(f1)
+    return np.mean(f1s)
 
 class Train(TorchModule):
 
@@ -79,8 +94,8 @@ class Train(TorchModule):
                 last_epoch=-1,
             )
         else:
-            self.scheduler = None
-
+            raise NotImplementedError
+    
     def prepare(self,container,params):
 
         if 'seed' in params: set_seed(params['seed'])
@@ -119,10 +134,12 @@ class Train(TorchModule):
                 if idx % params['print_every']==0:
                     tqdm.write(f"Training loss after {idx:04d} training steps: {loss.item()}")
             
-            val_score = evaluate_score(container.discourse_df,container.val_loader,self.model,container.id_target_map,self.device)
+                if idx != 0 and idx % params['eval_every']==0:
+                    val_score = evaluate_score(container.val_loader,self.model,self.device)
+                    tqdm.write(f"Validation score after {idx:04d} training steps: {val_score}")
+            val_score = evaluate_score(container.val_loader,self.model,self.device)
             tqdm.write(f"Validation score at this epoch: {val_score}")
             save_model_name = '{}_valscore{}_ep{}'.format(model_name_in_path(params['bert_model']), round(val_score, 5), epoch)
-            #save_model_name = '{}_ep{}'.format(model_name_in_path(params['bert_model']), epoch)
             container.save_one_item(save_model_name,self.model.state_dict(),'torch_model',check_dir=True) 
             if val_score > best_score:
                 tqdm.write("Best validation score improved from {} to {}".format(best_score, val_score))

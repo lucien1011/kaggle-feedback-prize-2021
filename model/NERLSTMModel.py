@@ -18,32 +18,42 @@ class NERLSTMModel(nn.Module):
             ner_model_weight='',
             ner_model_args={},
             freeze_ner=False, 
+            stance_model_type='',
+            stance_model_weight='',
+            stance_model_args={},
+            stance_num_labels=0,
+            freeze_stance=False, 
             num_labels=1, 
             ):
 
         super(NERLSTMModel, self).__init__()
 
-        self.ner_model_type = ner_model_type
-        self.ner_model_weight = ner_model_weight
-        self.ner_model_args = ner_model_args
-        if 'AutoModel' in ner_model_type:
-            self.ner_layer = AutoModelForTokenClassification.from_pretrained(ner_model_weight,num_labels=num_labels)
-        else:
-            self.ner_layer = eval(ner_model_type)(**ner_model_args)
-            self.ner_layer.load_state_dict(torch.load(ner_model_weight))
-
-        if freeze_ner:
-            for p in self.ner_layer.parameters():
-                p.requires_grad = False
-        
         self.num_labels = num_labels
+        self.ner_layer = self.prepare_bert_layer(ner_model_type,ner_model_weight,ner_model_args,num_labels,freeze=freeze_ner)
+        self.stance_layer = self.prepare_bert_layer(stance_model_type,stance_model_weight,stance_model_args,stance_num_labels,freeze=freeze_stance) if stance_model_type else None
+        
+        num_hidden_state = self.num_labels
+        if self.stance_layer:
+            num_hidden_state += self.stance_layer.num_labels
         self.lstm = nn.LSTM(
-                input_size=self.num_labels,
-                hidden_size=self.num_labels,
+                input_size=num_hidden_state,
+                hidden_size=num_hidden_state,
                 batch_first=True,
                 bidirectional=True,
                 )
-        self.cls_layer = nn.Linear(self.num_labels*2,self.num_labels)
+        self.cls_layer = nn.Linear(num_hidden_state*2,self.num_labels)
+
+    def prepare_bert_layer(self,model_type,model_weight,model_args,num_labels,freeze=True):
+        if 'AutoModel' in model_type:
+            layer = AutoModelForTokenClassification.from_pretrained(model_weight,num_labels=num_labels)
+        else:
+            layer = eval(model_type)(**model_args)
+            layer.load_state_dict(torch.load(model_weight))
+
+        if freeze:
+            for p in layer.parameters():
+                p.requires_grad = False
+        return layer
 
     def loss(self,logits,labels,attention_mask):
         loss_fct = nn.CrossEntropyLoss()
@@ -71,6 +81,11 @@ class NERLSTMModel(nn.Module):
             -attn_masks : Tensor containing attention masks to be used to focus on non-padded values
         '''
         logits = self.ner_layer(input_ids, attention_mask, return_dict=True)['logits']
+        
+        if self.stance_layer:
+            stances = self.stance_layer(input_ids, attention_mask, return_dict=True)['logits']
+            logits = torch.cat([logits,stances],dim=-1)
+        
         logits,_ = self.lstm(logits)
         logits = self.cls_layer(logits)
         probs = torch.softmax(logits,dim=-1)

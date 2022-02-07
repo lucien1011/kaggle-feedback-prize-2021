@@ -96,7 +96,7 @@ def get_pred_df(
         phrase_preds = []
         while idx < len(offset_mapping):
             start, _ = offset_mapping[idx]
-            if preds[idx] != "O":
+            if preds[idx] != "O" and preds[idx].startswith('B-'):
                 label = preds[idx][2:]
             else:
                 label = "O"

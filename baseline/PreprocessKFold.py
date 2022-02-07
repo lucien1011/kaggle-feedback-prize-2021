@@ -112,7 +112,9 @@ class PreprocessKFold(Module):
         
         df = container.discourse_df
 
-        for fold in df['kfold'].unique():
+        kfolds = df['kfold'].unique().tolist()
+        kfolds.sort()
+        for fold in kfolds:
 
             print('-'*100)
             print('KFold ',fold)

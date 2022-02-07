@@ -20,7 +20,7 @@ class Infer(TorchModule):
         with torch.no_grad():
             self.model.eval()
             probs = self.model.predict(self.loader,device=self.device)
-        container.add_item('probs',probs,'np_arr',mode='read')
+        container.add_item('probs',probs,'np_arr',mode='write')
 
     def wrapup(self,container,params):
         container.save()

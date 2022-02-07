@@ -2,8 +2,8 @@ from pipeline import BasePipeline
 import baseline
 from utils import read_attr_conf
 
-fold = 4
-name = '220128_baseline+cvfold{:d}_longformer-large'.format(fold)
+fold = 0
+name = '220207_baseline+stance+lstm_cvfold{:d}_longformer'.format(fold)
 
 conf = dict(
     base_dir='storage/output/'+name+'/',
@@ -13,7 +13,7 @@ conf = dict(
         name=name,
         memory='32gb',
         email='kin.ho.lo@cern.ch',
-        time='12:00:00',
+        time='04:00:00',
         gpu='a100',
         ncore='1',
         ntasks='1',
@@ -24,7 +24,7 @@ conf = dict(
         discourse_df_csv_path='storage/train_folds.csv',
         train_samples_path='storage/output/220126_baseline_preprocess_bi_mskfold/NERPreprocessKFold/train_samples_fold{:d}.p'.format(fold),
         valid_samples_path='storage/output/220126_baseline_preprocess_bi_mskfold/NERPreprocessKFold/valid_samples_fold{:d}.p'.format(fold),
-        bert_model="allenai/longformer-large-4096",
+        bert_model="allenai/longformer-base-4096",
         num_jobs=1,
         max_len=1536,
         train_bs=4,
@@ -34,30 +34,48 @@ conf = dict(
 
     NERLoadModel=dict(
         type='CustomModel',
-        custom_model='NERModel',
+        custom_model='NERLSTMModel', 
         args=dict(
-            bert_model="allenai/longformer-large-4096",
+            ner_model_type='NERModel',
+            ner_model_weight='storage/output/220128_baseline+cvfold0_longformer/NERTrain/allenai-longformer-base-4096_valscore0.64357_ep5.pt',
+            ner_model_args=dict(
+                bert_model='allenai/longformer-base-4096',
+                num_labels=15,
+                freeze_bert=False,
+                dropouts=[0.1,0.2,0.3,0.4,0.5],
+                ),
+            freeze_ner=True,
+
+            stance_model_type='NERModel',
+            stance_model_weight='storage/output/220207_stance_cvfold0_longformer/NERTrain/allenai-longformer-base-4096_valscore0.38875_ep4.pt',
+            stance_model_args=dict(
+                bert_model='allenai/longformer-base-4096',
+                num_labels=3,
+                freeze_bert=False,
+                dropouts=[0.1,0.2,0.3,0.4,0.5],
+                ),
+            freeze_stance=True,
+            stance_num_labels=3,
             num_labels=15,
-            freeze_bert=False,
-            dropouts=[0.1,0.2,0.3,0.4,0.5],
             ),
-        bert_model="allenai/longformer-large-4096",
         model_name='model',
         seed=42,
+        bert_model='',
         ),
 
     NERTrain=dict(
         model_name='model',
         optimizer_type='AdamW',
-        lr=2e-5,
+        lr=1e-3,
         wd=0.01,
         scheduler_type='cosine_schedule_with_warmup',
         warmup_frac=0.1,
         epochs=10,
         print_every=200,
+        eval_every=1500,
         max_grad_norm=None,
         seed=42,
-        bert_model="allenai/longformer-large-4096",
+        bert_model="allenai/longformer-base-4096",
         fp16=True,
         ),
 

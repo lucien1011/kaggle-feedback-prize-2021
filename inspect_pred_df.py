@@ -1,6 +1,16 @@
+import argparse
 import pandas as pd
 
+from comp import evaluate_score_from_df
+
 header = '='*100
+
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--pred_df',action='store')
+    parser.add_argument('--true_df',action='store',default='storage/train_folds.csv')
+    parser.add_argument('--fold',action='store',default=0)
+    return parser.parse_args()
 
 def count(first_disc_name,next_disc_name,df,flagname='discourse_type'):
     count = 0
@@ -39,15 +49,21 @@ def count_discourse_type_df(df,name):
         print("{:20s} | {:10d} | {:10d} | {:4.2f}".format(
             disc,ndisc,nword,nword/ndisc
             ))
- 
 
-true_df = pd.read_csv('storage/train_folds.csv')
-true_df = true_df[true_df['kfold']==0]
+def run(args):
+    true_df = pd.read_csv(args.true_df)
+    true_df = true_df[true_df['kfold']==args.fold]    
+    pred_df = pd.read_csv(args.pred_df)
 
-pred_df = pd.read_csv('storage/output/220203_baseline+stance+lstm_cvfold0_longformer-large/NERPredictionString/submission_df.csv')
+    #count_df(pred_df,'class')
+    #count_df(true_df,'discourse_type')
+    
+    count_discourse_type_df(pred_df,'class')
+    count_discourse_type_df(true_df,'discourse_type')
+    
+    evaluate_score_from_df(true_df,pred_df)
 
-#count_df(pred_df,'class')
-#count_df(true_df,'discourse_type')
+if __name__ == '__main__':
 
-count_discourse_type_df(pred_df,'class')
-count_discourse_type_df(true_df,'discourse_type')
+    args = parse_arguments()
+    run(args)

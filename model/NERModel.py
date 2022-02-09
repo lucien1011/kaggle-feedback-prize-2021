@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch.cuda.amp import autocast
 import torch.nn as nn
+import torch.nn.functional as F
 from transformers import AutoModel,AutoConfig
 from tqdm import tqdm
 
@@ -17,6 +18,7 @@ class NERModel(nn.Module):
             freeze_bert=False, 
             num_labels=1,
             dropouts=0.1,
+            pred_type='softmax',
             ):
 
         super(NERModel, self).__init__()
@@ -47,8 +49,9 @@ class NERModel(nn.Module):
 
         self.dropout_layers = nn.ModuleList([nn.Dropout(p=do) for do in self.dropouts])
         self.cls_layer = nn.Linear(config.hidden_size, self.num_labels)
+        self.pred_type = pred_type
 
-    def loss(self,logits,labels,attention_mask):
+    def softmax_loss(self,logits,labels,attention_mask):
         loss_fct = nn.CrossEntropyLoss()
 
         active_loss = attention_mask.view(-1) == 1
@@ -61,6 +64,30 @@ class NERModel(nn.Module):
 
         loss = loss_fct(active_logits, true_labels)
         return loss
+
+    def binary_loss(self,logits,labels,attention_mask):
+        loss_fct = nn.BCEWithLogitsLoss()
+        active_loss = attention_mask.view(-1) == 1
+        active_logits = logits.view(-1, self.num_labels)
+        true_labels = labels.view(-1)
+        idxs = np.where(active_loss.cpu().numpy() == 1)[0]
+        active_logits = active_logits[idxs]
+        true_labels = F.one_hot(true_labels[idxs].to(torch.long),num_classes=self.num_labels)
+        loss = loss_fct(active_logits, true_labels)
+        return loss
+
+
+    def loss(self,logits,labels,attention_mask):
+        if self.pred_type == 'softmax':
+            return self.softmax_loss(logits,labels,attention_mask)
+        elif self.pred_type == 'binary':
+            return self.binary_loss(logits,labels,attention_mask)
+
+    def probs(self,logits):
+        if self.pred_type == 'softmax':
+            return torch.softmax(logits,dim=-1)
+        elif self.pred_type == 'binary':
+            return torch.sigmoid(logits)
 
     def forward(self, 
             input_ids,
@@ -85,7 +112,7 @@ class NERModel(nn.Module):
             loss = torch.stack(losses,dim=0).sum(dim=0) / len(self.dropouts)
 
         logits = torch.stack(logits,dim=0).sum(dim=0) / len(self.dropouts)
-        probs = torch.softmax(logits,dim=-1)
+        probs = self.probs(logits)
         
         if return_dict:
             return dict(

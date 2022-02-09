@@ -44,6 +44,7 @@ conf = dict(
         bert_model="allenai/longformer-large-4096",
         model_name='model',
         seed=42,
+        saved_model='storage/output/220128_baseline+cvfold0_longformer-large/NERTrain/allenai-longformer-large-4096_valscore0.65187_ep5.pt',
         ),
 
     NERTrain=dict(
@@ -130,7 +131,7 @@ conf = dict(
 pipelines = [
         ('NERPrepareData',baseline.PrepareData()),
         ('NERLoadModel',baseline.LoadModel()),
-        ('NERTrain',baseline.Train()),
+        #('NERTrain',baseline.Train()),
         ('NERInfer',baseline.Infer()),
         ('NERPredictionString',baseline.PredictionString()),
         ('NEREvaluateScore',baseline.EvaluateScore()),

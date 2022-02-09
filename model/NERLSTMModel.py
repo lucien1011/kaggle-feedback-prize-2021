@@ -48,7 +48,7 @@ class NERLSTMModel(nn.Module):
             layer = AutoModelForTokenClassification.from_pretrained(model_weight,num_labels=num_labels)
         else:
             layer = eval(model_type)(**model_args)
-            layer.load_state_dict(torch.load(model_weight))
+            if model_weight: layer.load_state_dict(torch.load(model_weight))
 
         if freeze:
             for p in layer.parameters():

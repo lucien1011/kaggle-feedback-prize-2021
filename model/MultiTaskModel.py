@@ -6,30 +6,25 @@ import torch.nn.functional as F
 from transformers import AutoModel,AutoConfig
 from tqdm import tqdm
 
-hidden_size_map = {
-        'google/bigbird-roberta-base': 768,
-        'roberta-base': 768,
-        }
-
-class NERModel(nn.Module):
+class MultiTaskNERModel(nn.Module):
     def __init__(self, 
             bert_model='google/bigbird-roberta-base',
             saved_bert_model='',
             freeze_bert=False, 
             num_labels=1,
-            dropouts=[0.1,0.2,0.3,0.4,0.5],
+            num_stance_labels=1,
+            dropouts=0.1,
             pred_type='softmax',
-            all_hidden_state=False,
             ):
 
-        super(NERModel, self).__init__()
+        super(MultiTaskNERModel, self).__init__()
 
         hidden_dropout_prob: float = 0.1
         layer_norm_eps: float = 1e-7
 
         self.num_labels = num_labels
+        self.num_stance_labels = num_stance_labels
         self.dropouts = dropouts
-        self.all_hidden_state = all_hidden_state
         
         config = AutoConfig.from_pretrained(bert_model)
         config.update(
@@ -41,13 +36,6 @@ class NERModel(nn.Module):
                 "num_labels": self.num_labels,
             }
         )
-        self.config = config
-
-        if self.all_hidden_state:
-            n_weights = config.num_hidden_layers+1
-            weights_init = torch.zeros(n_weights).float()
-            self.hidden_layer_weights = torch.nn.Parameter(weights_init)
-
         self.dropout = nn.Dropout(config.hidden_dropout_prob)  
         self.bert_layer = AutoModel.from_pretrained(bert_model,config=config)
         if saved_bert_model:
@@ -57,14 +45,15 @@ class NERModel(nn.Module):
                 p.requires_grad = False
 
         self.dropout_layers = nn.ModuleList([nn.Dropout(p=do) for do in self.dropouts])
-        self.cls_layer = nn.Linear(config.hidden_size, self.num_labels)
+        self.discourse_cls_layer = nn.Linear(config.hidden_size, self.num_labels)
+        self.stance_cls_layer = nn.Linear(config.hidden_size, self.num_stance_labels)
         self.pred_type = pred_type
 
-    def softmax_loss(self,logits,labels,attention_mask):
+    def softmax_loss(self,logits,labels,attention_mask,num_labels):
         loss_fct = nn.CrossEntropyLoss()
 
         active_loss = attention_mask.view(-1) == 1
-        active_logits = logits.view(-1, self.num_labels)
+        active_logits = logits.view(-1, num_labels)
         true_labels = labels.view(-1)
         outputs = active_logits.argmax(dim=-1)
         idxs = np.where(active_loss.cpu().numpy() == 1)[0]
@@ -74,23 +63,24 @@ class NERModel(nn.Module):
         loss = loss_fct(active_logits, true_labels)
         return loss
 
-    def binary_loss(self,logits,labels,attention_mask):
+    def binary_loss(self,logits,labels,attention_mask,num_labels):
         loss_fct = nn.BCEWithLogitsLoss()
-        active_loss = attention_mask.view(-1) == 1
-        active_logits = logits.view(-1, self.num_labels)
+
+        active_loss = (attention_mask.view(-1) == 1) * (labels.view(-1) != -100)
+        active_logits = logits.view(-1,num_labels)
         true_labels = labels.view(-1)
         idxs = np.where(active_loss.cpu().numpy() == 1)[0]
         active_logits = active_logits[idxs]
-        true_labels = F.one_hot(true_labels[idxs].to(torch.long),num_classes=self.num_labels)
+        true_labels = F.one_hot(true_labels[idxs],num_classes=num_labels).to(torch.float)
+        
         loss = loss_fct(active_logits, true_labels)
         return loss
 
-
-    def loss(self,logits,labels,attention_mask):
+    def loss(self,logits,labels,attention_mask,num_labels):
         if self.pred_type == 'softmax':
-            return self.softmax_loss(logits,labels,attention_mask)
+            return self.softmax_loss(logits,labels,attention_mask,num_labels)
         elif self.pred_type == 'binary':
-            return self.binary_loss(logits,labels,attention_mask)
+            return self.binary_loss(logits,labels,attention_mask,num_labels)
 
     def probs(self,logits):
         if self.pred_type == 'softmax':
@@ -110,32 +100,37 @@ class NERModel(nn.Module):
             transformer_out = self.bert_layer(input_ids, attention_mask, token_type_ids)
         else:
             transformer_out = self.bert_layer(input_ids, attention_mask)
-
-        if self.all_hidden_state:
-            hidden_layer_weights = torch.softmax(self.hidden_layer_weights, dim=0)
-            sequence_output = torch.stack(transformer_out['hidden_states'],dim=0)
-            #sequence_output = torch.matmul(sequence_output.T,hidden_layer_weights).sum(dim=-1).T
-            sequence_output = (hidden_layer_weights.unsqueeze(1).unsqueeze(1).unsqueeze(1) * sequence_output).sum(0)
-        else:
-            sequence_output = transformer_out.last_hidden_state
+        sequence_output = transformer_out.last_hidden_state
         sequence_output = self.dropout(sequence_output)
 
-        logits = [self.cls_layer(do_layer(sequence_output)) for do_layer in self.dropout_layers]
+        discourse_logits = [self.discourse_cls_layer(do_layer(sequence_output)) for do_layer in self.dropout_layers]
+        stance_logits = [self.stance_cls_layer(do_layer(sequence_output)) for do_layer in self.dropout_layers]
 
         loss = None
         if labels is not None:
-            losses = [self.loss(logit,labels,attention_mask) for logit in logits]
-            loss = torch.stack(losses,dim=0).sum(dim=0) / len(self.dropouts)
+            discourse_labels,stance_labels = labels
+            discourse_losses = [self.loss(logit,discourse_labels,attention_mask,self.num_labels) for logit in discourse_logits]
+            discourse_loss = torch.stack(discourse_losses,dim=0).sum(dim=0) / len(self.dropouts)
+            stance_losses = [self.loss(logit,stance_labels,attention_mask,self.num_stance_labels) for logit in stance_logits]
+            stance_loss = torch.stack(stance_losses,dim=0).sum(dim=0) / len(self.dropouts)
+            loss = discourse_loss + stance_loss
 
-        logits = torch.stack(logits,dim=0).sum(dim=0) / len(self.dropouts)
-        probs = self.probs(logits)
+        discourse_logits = torch.stack(discourse_logits,dim=0).sum(dim=0) / len(self.dropouts)
+        discourse_probs = self.probs(discourse_logits)
+        stance_logits = torch.stack(stance_logits,dim=0).sum(dim=0) / len(self.dropouts)
+        stance_probs = self.probs(stance_logits)
+        logits = torch.cat([discourse_logits,stance_logits],dim=-1)
+        probs = torch.cat([discourse_probs,stance_probs],dim=-1)
         
         if return_dict:
             return dict(
                 loss=loss,
+                discourse_logits=discourse_logits,
+                discourse_probs=discourse_probs,
+                stance_logits=stance_logits,
+                stance_probs=stance_probs,
                 logits=logits,
                 probs=probs,
-                hidden_state=transformer_out.last_hidden_state,
             )
         else:
             return loss,logits,probs
@@ -144,6 +139,7 @@ class NERModel(nn.Module):
             dataloader,
             show_iters=True,
             device='cuda',
+            key='discourse_probs',
             ):
         probs = []
         batches = tqdm(dataloader) if show_iters else dataloader
@@ -151,6 +147,6 @@ class NERModel(nn.Module):
             ids = batch['input_ids'].to(device)
             mask = batch['attention_mask'].to(device)
             out = self(ids,mask,return_dict=True)
-            prob = out['probs'].cpu().numpy()
+            prob = out[key].cpu().numpy()
             probs.append(prob)
         return probs

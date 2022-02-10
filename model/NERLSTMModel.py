@@ -7,11 +7,6 @@ from transformers import AutoModelForTokenClassification
 
 from .NERModel import NERModel
 
-hidden_size_map = {
-        'google/bigbird-roberta-base': 768,
-        'roberta-base': 768,
-        }
-
 class NERLSTMModel(nn.Module):
     def __init__(self, 
             ner_model_type='google/bigbird-roberta-base',
@@ -22,7 +17,8 @@ class NERLSTMModel(nn.Module):
             stance_model_weight='',
             stance_model_args={},
             stance_num_labels=0,
-            freeze_stance=False, 
+            freeze_stance=False,
+            include_hidden_state=False,
             num_labels=1, 
             ):
 
@@ -33,8 +29,11 @@ class NERLSTMModel(nn.Module):
         self.stance_layer = self.prepare_bert_layer(stance_model_type,stance_model_weight,stance_model_args,stance_num_labels,freeze=freeze_stance) if stance_model_type else None
         
         num_hidden_state = self.num_labels
+        if include_hidden_state:
+            num_hidden_state += self.ner_layer.config.hidden_size
         if self.stance_layer:
             num_hidden_state += self.stance_layer.num_labels
+
         self.lstm = nn.LSTM(
                 input_size=num_hidden_state,
                 hidden_size=num_hidden_state,
@@ -42,6 +41,7 @@ class NERLSTMModel(nn.Module):
                 bidirectional=True,
                 )
         self.cls_layer = nn.Linear(num_hidden_state*2,self.num_labels)
+        self.include_hidden_state = include_hidden_state
 
     def prepare_bert_layer(self,model_type,model_weight,model_args,num_labels,freeze=True):
         if 'AutoModel' in model_type:
@@ -80,11 +80,15 @@ class NERLSTMModel(nn.Module):
             -input_ids : Tensor  containing token ids
             -attn_masks : Tensor containing attention masks to be used to focus on non-padded values
         '''
-        logits = self.ner_layer(input_ids, attention_mask, return_dict=True)['logits']
+        outputs = self.ner_layer(input_ids, attention_mask, return_dict=True) 
+        logits = outputs['logits']
         
         if self.stance_layer:
             stances = self.stance_layer(input_ids, attention_mask, return_dict=True)['logits']
             logits = torch.cat([logits,stances],dim=-1)
+
+        if self.include_hidden_state:
+            logits = torch.cat([logits,outputs['hidden_state']],dim=-1)
         
         logits,_ = self.lstm(logits)
         logits = self.cls_layer(logits)

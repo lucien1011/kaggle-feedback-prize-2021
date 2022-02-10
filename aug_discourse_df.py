@@ -5,8 +5,8 @@ import random
 from tqdm import tqdm
 
 orig_dir = 'storage/train/'
-aug_dir = 'storage/output/220204_backtranslation/'
-out_dir = 'storage/output/220205_aug_discourse_df_test/'
+aug_dir = 'storage/output/220210_backtranslation_en-ru/'
+out_dir = 'storage/output/220210_aug_discourse_df_en-ru/'
 out_text_dir = os.path.join(out_dir,'train/')
 
 def write_text_file(tid,text):

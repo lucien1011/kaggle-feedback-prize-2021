@@ -8,10 +8,11 @@ from tqdm import tqdm
 header = '='*100
 subheader = '-'*100
 
-out_dir = 'storage/output/220204_backtranslation/'
+#out_dir = 'storage/output/220204_backtranslation/'
+out_dir = 'storage/output/220210_backtranslation_en-ru/'
 
-en2de = torch.hub.load('pytorch/fairseq', 'transformer.wmt19.en-de.single_model', useGPU=True)
-de2en = torch.hub.load('pytorch/fairseq', 'transformer.wmt19.de-en.single_model', useGPU=True)
+en2de = torch.hub.load('pytorch/fairseq', 'transformer.wmt19.en-ru.single_model', useGPU=True)
+de2en = torch.hub.load('pytorch/fairseq', 'transformer.wmt19.ru-en.single_model', useGPU=True)
 
 en2de.eval()
 en2de.cuda()

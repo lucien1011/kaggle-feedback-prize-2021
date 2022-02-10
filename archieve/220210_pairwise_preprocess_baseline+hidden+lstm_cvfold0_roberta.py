@@ -1,8 +1,8 @@
 from pipeline import BasePipeline
-import token_classification as mod
+import pairwise_sent_pair as mod
 from utils import read_attr_conf
 
-name = '220205_tokenclassification_preprocess_mskfold'
+name = '220210_pairwise_preprocess_baseline+hidden+lstm_cvfold0_roberta'
 
 conf = dict(
     base_dir='storage/output/'+name+'/',
@@ -19,22 +19,21 @@ conf = dict(
         commands='python3 '+name+'py',
     ),
 
-    NERPreprocessKFold=dict(
-        discourse_df_csv_path='storage/train_folds.csv',
-        fold=0,
-        bert_model="allenai/longformer-base-4096",
+    Preprocess=dict(
+        discourse_df_csv_path='storage/output/220209_baseline+hidden+lstm_cvfold0_longformer/NERPredictionString/discourse_df.csv',
+        bert_model="roberta-base",
         args=dict(
             input='storage/',
             ),
-        num_jobs=4,
-        max_len=1536,
+        num_jobs=1,
+        max_len=512,
         train_bs=4,
         val_bs=128,
     ),
 )
 
 pipelines = [
-        ('NERPreprocessKFold',mod.PreprocessKFold()),
+        ('Preprocess',mod.Preprocess()),
         ]
 
 if __name__ == "__main__":

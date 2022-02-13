@@ -14,6 +14,14 @@ color_map = {
 header = '='*100
 subheader = '-'*100
 
+def parse_arguments():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--true_csv',action='store',default='storage/train.csv')
+    parser.add_argument('--pred_csv',action='store',default='storage/output/220203_baseline+stance+lstm_cvfold0_longformer-large/NERPredictionString/submission_df.csv')
+    parser.add_argument('--id',action='store',default='')
+    return parser.parse_args()
+
 def visualize_id(tid,train_df,dname='discourse_type',hname=''):
     with open('storage/train/'+tid+'.txt','r') as file: data = file.read()
     words = data.split()
@@ -33,9 +41,15 @@ def visualize_id(tid,train_df,dname='discourse_type',hname=''):
     for start,disc,text in items:
         print("{:20s} | ".format(disc),text)
 
-true_df = pd.read_csv('storage/train.csv')
-pred_df = pd.read_csv('storage/output/220203_baseline+stance+lstm_cvfold0_longformer-large/NERPredictionString/submission_df.csv')
+def run(args):
+    true_df = pd.read_csv(args.true_csv)
+    pred_df = pd.read_csv(args.pred_csv)
+    
+    tid = pred_df.sample().id.item() if not args.id else args.id
+    visualize_id(tid,true_df,hname='True')
+    visualize_id(tid,pred_df,'class',hname='Pred')
 
-tid = pred_df.sample().id.item()
-visualize_id(tid,true_df,hname='True')
-visualize_id(tid,pred_df,'class',hname='Pred')
+if __name__ == '__main__':
+
+    args = parse_arguments()
+    run(args)

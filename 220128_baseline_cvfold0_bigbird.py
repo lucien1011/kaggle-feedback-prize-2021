@@ -3,7 +3,7 @@ import baseline
 from utils import read_attr_conf
 
 fold = 0
-name = '220128_baseline+cvfold{:d}_longformer'.format(fold)
+name = '220128_baseline_cvfold{:d}_bigbird'.format(fold)
 
 conf = dict(
     base_dir='storage/output/'+name+'/',

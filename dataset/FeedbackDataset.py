@@ -12,6 +12,9 @@ class FeedbackDataset(Dataset):
     def __len__(self):
         return self.length
 
+    def text_id(self,idx):
+        return self.samples[idx]['id']
+
     def __getitem__(self, idx):
         input_ids = self.samples[idx]["input_ids"]
         input_labels = self.samples[idx]["input_labels"]
@@ -48,7 +51,8 @@ class FeedbackDataset(Dataset):
             "input_ids": torch.tensor(input_ids, dtype=torch.long),
             "attention_mask": torch.tensor(attention_mask, dtype=torch.long),
             "labels": torch.tensor(input_labels, dtype=torch.long),
-        }
+            'id': self.samples[idx]['id'], 
+            }
 
 class FeedbackDatasetValid:
     def __init__(self, samples, max_len, tokenizer):
